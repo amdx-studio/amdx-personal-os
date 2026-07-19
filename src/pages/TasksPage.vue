@@ -1,76 +1,118 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Plus, Trash2 } from 'lucide-vue-next'
 import { useTasksStore } from '../stores/useTasksStore'
+import type { Task, CreateTaskInput, UpdateTaskInput } from '../types/task'
+import TaskSummaryCards from '../components/tasks/TaskSummaryCards.vue'
+import TaskToolbar from '../components/tasks/TaskToolbar.vue'
+import TaskCard from '../components/tasks/TaskCard.vue'
+import TaskFormModal from '../components/tasks/TaskFormModal.vue'
+import TaskDetailDrawer from '../components/tasks/TaskDetailDrawer.vue'
 
 const tasksStore = useTasksStore()
-const newTaskTitle = ref('')
+
+const isFormOpen = ref(false)
+const editingTask = ref<Task | null>(null)
 
 onMounted(() => {
   tasksStore.loadTasks()
 })
 
-function handleAddTask(): void {
-  const title = newTaskTitle.value.trim()
-  if (!title) return
+function openCreateForm(): void {
+  editingTask.value = null
+  isFormOpen.value = true
+}
 
-  tasksStore.createTask({ title })
-  newTaskTitle.value = ''
+function openEditForm(task: Task): void {
+  editingTask.value = task
+  isFormOpen.value = true
+  tasksStore.selectTask(null) // close drawer while editing
+}
+
+function closeForm(): void {
+  isFormOpen.value = false
+  editingTask.value = null
+}
+
+async function handleSave(payload: CreateTaskInput | UpdateTaskInput): Promise<void> {
+  if ('id' in payload) {
+    await tasksStore.updateTask(payload)
+  } else {
+    await tasksStore.createTask(payload)
+  }
+  closeForm()
+}
+
+async function handleDelete(id: string): Promise<void> {
+  await tasksStore.deleteTask(id)
+}
+
+async function handleDuplicate(id: string): Promise<void> {
+  await tasksStore.duplicateTask(id)
+}
+
+async function handleMarkDone(id: string): Promise<void> {
+  await tasksStore.markAsDone(id)
+}
+
+async function handleExtendDeadline(id: string, newDeadline: string): Promise<void> {
+  await tasksStore.extendDeadline(id, newDeadline)
+}
+
+async function handleArchive(id: string, archived: boolean): Promise<void> {
+  await tasksStore.toggleArchive(id, archived)
+}
+
+async function handleUpdateProgress(id: string, progress: number): Promise<void> {
+  await tasksStore.updateTask({ id, progress })
+}
+
+async function handleUpdateNotes(id: string, notes: string): Promise<void> {
+  await tasksStore.updateTask({ id, notes })
 }
 </script>
 
 <template>
   <div class="space-y-4">
-    <form class="flex gap-2" @submit.prevent="handleAddTask">
-      <input
-        v-model="newTaskTitle"
-        type="text"
-        placeholder="Tambah task baru..."
-        class="flex-1 rounded-lg border border-border bg-surface px-4 py-2 text-sm text-ink outline-none focus:border-accent"
-      />
-      <button
-        type="submit"
-        class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
-      >
-        <Plus class="h-4 w-4" />
-        Tambah
-      </button>
-    </form>
+    <TaskSummaryCards :summary="tasksStore.summary" />
 
-    <div v-if="tasksStore.isLoading" class="text-sm text-ink-muted">
-      Memuat tasks...
+    <TaskToolbar v-model:filters="tasksStore.filters" @add-task="openCreateForm" />
+
+    <div v-if="tasksStore.isLoading" class="text-sm text-ink-muted">Memuat tasks...</div>
+
+    <div
+      v-else-if="tasksStore.filteredTasks.length === 0"
+      class="rounded-xl border border-border bg-surface p-8 text-center text-ink-muted"
+    >
+      Tidak ada task yang cocok dengan filter saat ini.
     </div>
 
-    <div v-else-if="tasksStore.tasks.length === 0" class="rounded-xl border border-border bg-surface p-8 text-center text-ink-muted">
-      Belum ada task. Tambahkan yang pertama!
-    </div>
-
-    <ul v-else class="space-y-2">
-      <li
-        v-for="task in tasksStore.tasks"
+    <ul v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <TaskCard
+        v-for="task in tasksStore.filteredTasks"
         :key="task.id"
-        class="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3"
-      >
-        <input
-          type="checkbox"
-          :checked="task.completed"
-          class="h-4 w-4 accent-accent"
-          @change="tasksStore.toggleTask(task.id)"
-        />
-        <span
-          class="flex-1 text-sm"
-          :class="task.completed ? 'text-ink-subtle line-through' : 'text-ink'"
-        >
-          {{ task.title }}
-        </span>
-        <button
-          type="button"
-          class="text-ink-subtle transition-colors hover:text-red-500"
-          @click="tasksStore.deleteTask(task.id)"
-        >
-          <Trash2 class="h-4 w-4" />
-        </button>
-      </li>
+        :task="task"
+        @click="tasksStore.selectTask(task.id)"
+      />
     </ul>
+
+    <TaskFormModal
+      :open="isFormOpen"
+      :task="editingTask"
+      @close="closeForm"
+      @save="handleSave"
+    />
+
+    <TaskDetailDrawer
+      :task="tasksStore.selectedTask"
+      @close="tasksStore.selectTask(null)"
+      @edit="openEditForm"
+      @delete="handleDelete"
+      @duplicate="handleDuplicate"
+      @mark-done="handleMarkDone"
+      @extend-deadline="handleExtendDeadline"
+      @archive="handleArchive"
+      @update-progress="handleUpdateProgress"
+      @update-notes="handleUpdateNotes"
+    />
   </div>
 </template>

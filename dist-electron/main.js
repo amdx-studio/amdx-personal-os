@@ -84,20 +84,81 @@ async function createTask(input) {
 	const newTask = {
 		id: randomUUID(),
 		title: input.title,
-		completed: false,
-		createdAt: (/* @__PURE__ */ new Date()).toISOString()
+		description: input.description ?? "",
+		category: input.category,
+		deadline: input.deadline ?? null,
+		status: input.status ?? "belum_dimulai",
+		priority: input.priority ?? "medium",
+		progress: input.progress ?? 0,
+		notes: input.notes ?? "",
+		createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+		completedAt: null,
+		archived: false,
+		kuliahDetails: input.kuliahDetails,
+		jokiDetails: input.jokiDetails,
+		klienDetails: input.klienDetails
 	};
 	await writeJsonFile(TASKS_FILE, [...tasks, newTask]);
 	return newTask;
 }
-async function toggleTask(id) {
-	await writeJsonFile(TASKS_FILE, (await getTasks()).map((task) => task.id === id ? {
-		...task,
-		completed: !task.completed
-	} : task));
+async function updateTask(input) {
+	const tasks = await getTasks();
+	const index = tasks.findIndex((t) => t.id === input.id);
+	if (index === -1) throw new Error(`Task ${input.id} tidak ditemukan`);
+	const existing = tasks[index];
+	const merged = {
+		...existing,
+		...input
+	};
+	if (input.status && input.status !== existing.status) {
+		if (input.status === "selesai") {
+			merged.completedAt = (/* @__PURE__ */ new Date()).toISOString();
+			merged.progress = 100;
+		} else if (existing.status === "selesai") merged.completedAt = null;
+	}
+	const updated = [...tasks];
+	updated[index] = merged;
+	await writeJsonFile(TASKS_FILE, updated);
+	return merged;
 }
 async function deleteTask(id) {
 	await writeJsonFile(TASKS_FILE, (await getTasks()).filter((task) => task.id !== id));
+}
+async function duplicateTask(id) {
+	const tasks = await getTasks();
+	const original = tasks.find((t) => t.id === id);
+	if (!original) throw new Error(`Task ${id} tidak ditemukan`);
+	const copy = {
+		...original,
+		id: randomUUID(),
+		title: `${original.title} (Copy)`,
+		status: "belum_dimulai",
+		progress: 0,
+		completedAt: null,
+		createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+		archived: false
+	};
+	await writeJsonFile(TASKS_FILE, [...tasks, copy]);
+	return copy;
+}
+async function markTaskDone(id) {
+	return updateTask({
+		id,
+		status: "selesai",
+		progress: 100
+	});
+}
+async function extendDeadline(id, newDeadline) {
+	return updateTask({
+		id,
+		deadline: newDeadline
+	});
+}
+async function archiveTask(id, archived = true) {
+	return updateTask({
+		id,
+		archived
+	});
 }
 //#endregion
 //#region electron/ipc/tasksHandlers.ts
@@ -108,13 +169,24 @@ function registerTasksHandlers() {
 	ipcMain.handle("tasks:create", async (_event, input) => {
 		return createTask(input);
 	});
-	ipcMain.handle("tasks:toggle", async (_event, id) => {
-		await toggleTask(id);
-		return true;
+	ipcMain.handle("tasks:update", async (_event, input) => {
+		return updateTask(input);
 	});
 	ipcMain.handle("tasks:delete", async (_event, id) => {
 		await deleteTask(id);
 		return true;
+	});
+	ipcMain.handle("tasks:duplicate", async (_event, id) => {
+		return duplicateTask(id);
+	});
+	ipcMain.handle("tasks:markDone", async (_event, id) => {
+		return markTaskDone(id);
+	});
+	ipcMain.handle("tasks:extendDeadline", async (_event, id, newDeadline) => {
+		return extendDeadline(id, newDeadline);
+	});
+	ipcMain.handle("tasks:archive", async (_event, id, archived) => {
+		return archiveTask(id, archived);
 	});
 }
 //#endregion

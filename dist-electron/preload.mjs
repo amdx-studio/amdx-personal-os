@@ -9,8 +9,12 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
 	tasks: {
 		get: () => electron.ipcRenderer.invoke("tasks:get"),
 		create: (input) => electron.ipcRenderer.invoke("tasks:create", input),
-		toggle: (id) => electron.ipcRenderer.invoke("tasks:toggle", id),
-		delete: (id) => electron.ipcRenderer.invoke("tasks:delete", id)
+		update: (input) => electron.ipcRenderer.invoke("tasks:update", input),
+		delete: (id) => electron.ipcRenderer.invoke("tasks:delete", id),
+		duplicate: (id) => electron.ipcRenderer.invoke("tasks:duplicate", id),
+		markDone: (id) => electron.ipcRenderer.invoke("tasks:markDone", id),
+		extendDeadline: (id, newDeadline) => electron.ipcRenderer.invoke("tasks:extendDeadline", id, newDeadline),
+		archive: (id, archived) => electron.ipcRenderer.invoke("tasks:archive", id, archived)
 	},
 	habits: {
 		get: () => electron.ipcRenderer.invoke("habits:get"),

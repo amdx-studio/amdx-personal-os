@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppSettings } from '../src/types/settings.js'
-import type { Task, CreateTaskInput } from '../src/types/task.js'
+import type { Task, CreateTaskInput, UpdateTaskInput } from '../src/types/task.js'
 import type { Habit, CreateHabitInput } from '../src/types/habit.js'
 import type { Note, CreateNoteInput, UpdateNoteInput } from '../src/types/note.js'
 import type {
@@ -29,8 +29,15 @@ const electronAPI = {
     get: (): Promise<Task[]> => ipcRenderer.invoke('tasks:get'),
     create: (input: CreateTaskInput): Promise<Task> =>
       ipcRenderer.invoke('tasks:create', input),
-    toggle: (id: string): Promise<boolean> => ipcRenderer.invoke('tasks:toggle', id),
+    update: (input: UpdateTaskInput): Promise<Task> =>
+      ipcRenderer.invoke('tasks:update', input),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('tasks:delete', id),
+    duplicate: (id: string): Promise<Task> => ipcRenderer.invoke('tasks:duplicate', id),
+    markDone: (id: string): Promise<Task> => ipcRenderer.invoke('tasks:markDone', id),
+    extendDeadline: (id: string, newDeadline: string): Promise<Task> =>
+      ipcRenderer.invoke('tasks:extendDeadline', id, newDeadline),
+    archive: (id: string, archived: boolean): Promise<Task> =>
+      ipcRenderer.invoke('tasks:archive', id, archived),
   },
   habits: {
     get: (): Promise<Habit[]> => ipcRenderer.invoke('habits:get'),
