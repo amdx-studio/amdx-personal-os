@@ -1,1 +1,74 @@
-let e=require("electron");e.contextBridge.exposeInMainWorld(`electronAPI`,{app:{getVersion:()=>e.ipcRenderer.invoke(`app:get-version`)},settings:{get:()=>e.ipcRenderer.invoke(`settings:get`),save:t=>e.ipcRenderer.invoke(`settings:save`,t)},tasks:{get:()=>e.ipcRenderer.invoke(`tasks:get`),create:t=>e.ipcRenderer.invoke(`tasks:create`,t),update:t=>e.ipcRenderer.invoke(`tasks:update`,t),delete:t=>e.ipcRenderer.invoke(`tasks:delete`,t),duplicate:t=>e.ipcRenderer.invoke(`tasks:duplicate`,t),markDone:t=>e.ipcRenderer.invoke(`tasks:markDone`,t),extendDeadline:(t,n)=>e.ipcRenderer.invoke(`tasks:extendDeadline`,t,n),archive:(t,n)=>e.ipcRenderer.invoke(`tasks:archive`,t,n)},notes:{get:()=>e.ipcRenderer.invoke(`notes:get`),create:t=>e.ipcRenderer.invoke(`notes:create`,t),update:(t,n)=>e.ipcRenderer.invoke(`notes:update`,t,n),delete:t=>e.ipcRenderer.invoke(`notes:delete`,t)},finance:{get:()=>e.ipcRenderer.invoke(`finance:get`),create:t=>e.ipcRenderer.invoke(`finance:create`,t),update:(t,n)=>e.ipcRenderer.invoke(`finance:update`,t,n),delete:t=>e.ipcRenderer.invoke(`finance:delete`,t)},goals:{get:()=>e.ipcRenderer.invoke(`goals:get`),create:t=>e.ipcRenderer.invoke(`goals:create`,t),update:(t,n)=>e.ipcRenderer.invoke(`goals:update`,t,n),delete:t=>e.ipcRenderer.invoke(`goals:delete`,t)},routine:{get:()=>e.ipcRenderer.invoke(`routine:get`),create:t=>e.ipcRenderer.invoke(`routine:create`,t),update:(t,n)=>e.ipcRenderer.invoke(`routine:update`,t,n),delete:t=>e.ipcRenderer.invoke(`routine:delete`,t)}});
+let electron = require("electron");
+//#region electron/preload.ts
+electron.contextBridge.exposeInMainWorld("electronAPI", {
+	app: { getVersion: () => electron.ipcRenderer.invoke("app:get-version") },
+	settings: {
+		get: () => electron.ipcRenderer.invoke("settings:get"),
+		save: (settings) => electron.ipcRenderer.invoke("settings:save", settings)
+	},
+	tasks: {
+		get: () => electron.ipcRenderer.invoke("tasks:get"),
+		create: (input) => electron.ipcRenderer.invoke("tasks:create", input),
+		update: (input) => electron.ipcRenderer.invoke("tasks:update", input),
+		delete: (id) => electron.ipcRenderer.invoke("tasks:delete", id),
+		duplicate: (id) => electron.ipcRenderer.invoke("tasks:duplicate", id),
+		markDone: (id) => electron.ipcRenderer.invoke("tasks:markDone", id),
+		extendDeadline: (id, newDeadline) => electron.ipcRenderer.invoke("tasks:extendDeadline", id, newDeadline),
+		archive: (id, archived) => electron.ipcRenderer.invoke("tasks:archive", id, archived)
+	},
+	notes: {
+		get: () => electron.ipcRenderer.invoke("notes:get"),
+		create: (input) => electron.ipcRenderer.invoke("notes:create", input),
+		update: (id, input) => electron.ipcRenderer.invoke("notes:update", id, input),
+		delete: (id) => electron.ipcRenderer.invoke("notes:delete", id)
+	},
+	finance: {
+		get: () => electron.ipcRenderer.invoke("finance:get"),
+		create: (input) => electron.ipcRenderer.invoke("finance:create", input),
+		update: (id, input) => electron.ipcRenderer.invoke("finance:update", id, input),
+		delete: (id) => electron.ipcRenderer.invoke("finance:delete", id),
+		accounts: {
+			get: () => electron.ipcRenderer.invoke("finance:accounts:get"),
+			create: (input) => electron.ipcRenderer.invoke("finance:accounts:create", input),
+			update: (id, input) => electron.ipcRenderer.invoke("finance:accounts:update", id, input),
+			delete: (id) => electron.ipcRenderer.invoke("finance:accounts:delete", id)
+		},
+		budgets: {
+			get: () => electron.ipcRenderer.invoke("finance:budgets:get"),
+			create: (input) => electron.ipcRenderer.invoke("finance:budgets:create", input),
+			update: (id, input) => electron.ipcRenderer.invoke("finance:budgets:update", id, input),
+			delete: (id) => electron.ipcRenderer.invoke("finance:budgets:delete", id)
+		},
+		goals: {
+			get: () => electron.ipcRenderer.invoke("finance:goals:get"),
+			create: (input) => electron.ipcRenderer.invoke("finance:goals:create", input),
+			update: (id, input) => electron.ipcRenderer.invoke("finance:goals:update", id, input),
+			delete: (id) => electron.ipcRenderer.invoke("finance:goals:delete", id)
+		},
+		bills: {
+			get: () => electron.ipcRenderer.invoke("finance:bills:get"),
+			create: (input) => electron.ipcRenderer.invoke("finance:bills:create", input),
+			update: (id, input) => electron.ipcRenderer.invoke("finance:bills:update", id, input),
+			delete: (id) => electron.ipcRenderer.invoke("finance:bills:delete", id)
+		},
+		wishlist: {
+			get: () => electron.ipcRenderer.invoke("finance:wishlist:get"),
+			create: (input) => electron.ipcRenderer.invoke("finance:wishlist:create", input),
+			update: (id, input) => electron.ipcRenderer.invoke("finance:wishlist:update", id, input),
+			delete: (id) => electron.ipcRenderer.invoke("finance:wishlist:delete", id)
+		},
+		assets: {
+			get: () => electron.ipcRenderer.invoke("finance:assets:get"),
+			create: (input) => electron.ipcRenderer.invoke("finance:assets:create", input),
+			update: (id, input) => electron.ipcRenderer.invoke("finance:assets:update", id, input),
+			delete: (id) => electron.ipcRenderer.invoke("finance:assets:delete", id)
+		}
+	},
+	goals: {
+		get: () => electron.ipcRenderer.invoke("goals:get"),
+		create: (input) => electron.ipcRenderer.invoke("goals:create", input),
+		update: (id, input) => electron.ipcRenderer.invoke("goals:update", id, input),
+		delete: (id) => electron.ipcRenderer.invoke("goals:delete", id)
+	}
+});
+//#endregion

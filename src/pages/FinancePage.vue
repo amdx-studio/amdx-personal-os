@@ -33,7 +33,7 @@ import dayjs from 'dayjs'
 const financeStore = useFinanceStore()
 
 /* ------------------------------------------------------------------ */
-/* Form tambah transaksi (data asli, tersimpan lewat store yang ada)   */
+/* Form tambah transaksi                                               */
 /* ------------------------------------------------------------------ */
 const showForm = ref(false)
 const newType = ref<TransactionType>('expense')
@@ -43,7 +43,7 @@ const newDate = ref(dayjs().format('YYYY-MM-DD'))
 const newDescription = ref('')
 
 onMounted(() => {
-  financeStore.loadTransactions()
+  financeStore.loadFinanceData()
 })
 
 function formatCurrency(value: number): string {
@@ -95,14 +95,8 @@ function iconForCategory(category: string) {
 }
 
 /* ------------------------------------------------------------------ */
-/* NOTE: Bagian di bawah ini (accounts, budgets, goals, bills,          */
-/* wishlist, assets) BELUM punya backend/model data.                   */
-/* Sesuai instruksi (tidak boleh membuat backend/database/API),        */
-/* data-data ini disimpan sebagai state lokal (session-only) dan       */
-/* TIDAK ikut tersimpan ke finance.json. Ditandai "Manual" di UI.       */
+/* Akun (dari store, tersimpan ke finance.json)                        */
 /* ------------------------------------------------------------------ */
-
-// --- Akun (manual, belum tersinkron dari transaksi) ---
 interface AccountBalance {
   id: string
   label: string
@@ -110,30 +104,33 @@ interface AccountBalance {
   amount: number
 }
 
-const accounts = ref<AccountBalance[]>([
-  { id: 'cash', label: 'Cash', icon: Wallet, amount: 850_000 },
-  { id: 'bank', label: 'Bank', icon: Landmark, amount: 4_200_000 },
-  { id: 'ewallet', label: 'E-Wallet', icon: CreditCard, amount: 350_000 },
-  { id: 'savings', label: 'Savings', icon: PiggyBank, amount: 6_000_000 },
-  { id: 'investment', label: 'Investments', icon: LineChart, amount: 3_000_000 },
-])
-
-const totalBalance = computed<number>(() =>
-  accounts.value.reduce((sum, account) => sum + account.amount, 0),
-)
-
-// --- Budget (manual, dibandingkan dengan pengeluaran nyata bulan ini) ---
-interface BudgetItem {
-  id: string
-  category: string
-  limit: number
+const accountIcons: Record<string, any> = {
+  cash: Wallet,
+  bank: Landmark,
+  ewallet: CreditCard,
+  savings: PiggyBank,
+  investment: LineChart,
 }
 
-const budgets = ref<BudgetItem[]>([
-  { id: 'b1', category: 'Makan', limit: 1_500_000 },
-  { id: 'b2', category: 'Transport', limit: 500_000 },
-  { id: 'b3', category: 'Internet', limit: 300_000 },
-])
+function iconForAccount(iconKey: string) {
+  return accountIcons[iconKey] ?? Wallet2
+}
+
+const accounts = computed<AccountBalance[]>(() =>
+  financeStore.accounts.map((account) => ({
+    id: account.id,
+    label: account.label,
+    icon: iconForAccount(account.iconKey),
+    amount: account.amount,
+  })),
+)
+
+const totalBalance = computed<number>(() => financeStore.totalBalance)
+
+/* ------------------------------------------------------------------ */
+/* Budget (dari store, dibandingkan dengan pengeluaran nyata bulan ini)*/
+/* ------------------------------------------------------------------ */
+const budgets = computed(() => financeStore.budgets)
 
 function spentForCategory(category: string): number {
   const match = financeStore.expenseByCategory.find(
@@ -142,7 +139,7 @@ function spentForCategory(category: string): number {
   return match?.amount ?? 0
 }
 
-function budgetPercentage(budget: BudgetItem): number {
+function budgetPercentage(budget: { category: string; limit: number }): number {
   if (budget.limit <= 0) return 0
   return Math.min(100, Math.round((spentForCategory(budget.category) / budget.limit) * 100))
 }
@@ -157,32 +154,26 @@ const showBudgetForm = ref(false)
 const newBudgetCategory = ref('')
 const newBudgetLimit = ref<number | null>(null)
 
-function addBudget(): void {
+async function addBudget(): Promise<void> {
   const category = newBudgetCategory.value.trim()
   if (!category || !newBudgetLimit.value || newBudgetLimit.value <= 0) return
-  budgets.value.push({
-    id: crypto.randomUUID(),
+
+  await financeStore.createBudget({
     category,
     limit: newBudgetLimit.value,
   })
+
   newBudgetCategory.value = ''
   newBudgetLimit.value = null
   showBudgetForm.value = false
 }
 
-// --- Savings goals (manual) ---
-interface SavingsGoal {
-  id: string
-  name: string
-  target: number
-  current: number
-}
+/* ------------------------------------------------------------------ */
+/* Savings goals (dari store)                                          */
+/* ------------------------------------------------------------------ */
+const goals = computed(() => financeStore.goals)
 
-const goals = ref<SavingsGoal[]>([
-  { id: 'g1', name: 'Laptop Baru', target: 15_000_000, current: 7_500_000 },
-])
-
-function goalPercentage(goal: SavingsGoal): number {
+function goalPercentage(goal: { target: number; current: number }): number {
   if (goal.target <= 0) return 0
   return Math.min(100, Math.round((goal.current / goal.target) * 100))
 }
@@ -191,76 +182,43 @@ const showGoalForm = ref(false)
 const newGoalName = ref('')
 const newGoalTarget = ref<number | null>(null)
 
-function addGoal(): void {
+async function addGoal(): Promise<void> {
   const name = newGoalName.value.trim()
   if (!name || !newGoalTarget.value || newGoalTarget.value <= 0) return
-  goals.value.push({
-    id: crypto.randomUUID(),
+
+  await financeStore.createGoal({
     name,
     target: newGoalTarget.value,
-    current: 0,
   })
+
   newGoalName.value = ''
   newGoalTarget.value = null
   showGoalForm.value = false
 }
 
-// --- Upcoming bills (manual) ---
-interface Bill {
-  id: string
-  name: string
-  amount: number
-  dueDate: string
+/* ------------------------------------------------------------------ */
+/* Upcoming bills (dari store)                                         */
+/* ------------------------------------------------------------------ */
+const bills = computed(() => financeStore.bills)
+
+async function removeBill(id: string): Promise<void> {
+  await financeStore.deleteBill(id)
 }
 
-const bills = ref<Bill[]>([
-  { id: 'bl1', name: 'Internet', amount: 350_000, dueDate: dayjs().add(3, 'day').format('YYYY-MM-DD') },
-  { id: 'bl2', name: 'Listrik', amount: 250_000, dueDate: dayjs().add(5, 'day').format('YYYY-MM-DD') },
-  { id: 'bl3', name: 'Domain', amount: 180_000, dueDate: dayjs().add(9, 'day').format('YYYY-MM-DD') },
-  { id: 'bl4', name: 'Hosting', amount: 220_000, dueDate: dayjs().add(12, 'day').format('YYYY-MM-DD') },
-  { id: 'bl5', name: 'Spotify', amount: 59_000, dueDate: dayjs().add(15, 'day').format('YYYY-MM-DD') },
-  { id: 'bl6', name: 'Netflix', amount: 120_000, dueDate: dayjs().add(20, 'day').format('YYYY-MM-DD') },
-])
+/* ------------------------------------------------------------------ */
+/* Wishlist (dari store)                                               */
+/* ------------------------------------------------------------------ */
+const wishlist = computed(() => financeStore.wishlist)
 
-function removeBill(id: string): void {
-  bills.value = bills.value.filter((bill) => bill.id !== id)
+async function removeWishlistItem(id: string): Promise<void> {
+  await financeStore.deleteWishlistItem(id)
 }
 
-// --- Wishlist (manual) ---
-interface WishlistItem {
-  id: string
-  name: string
-  price?: number
-}
-
-const wishlist = ref<WishlistItem[]>([
-  { id: 'w1', name: 'Monitor', price: 3_500_000 },
-  { id: 'w2', name: 'Mechanical Keyboard', price: 1_200_000 },
-  { id: 'w3', name: 'iPad', price: 9_000_000 },
-  { id: 'w4', name: 'Camera', price: 12_000_000 },
-])
-
-function removeWishlistItem(id: string): void {
-  wishlist.value = wishlist.value.filter((item) => item.id !== id)
-}
-
-// --- Assets summary (manual) ---
-interface Asset {
-  id: string
-  name: string
-  value?: number
-}
-
-const assets = ref<Asset[]>([
-  { id: 'a1', name: 'Laptop', value: 15_000_000 },
-  { id: 'a2', name: 'Motor', value: 12_000_000 },
-  { id: 'a3', name: 'HP', value: 6_000_000 },
-  { id: 'a4', name: 'Monitor', value: 3_500_000 },
-])
-
-const totalAssetValue = computed(() =>
-  assets.value.reduce((sum, asset) => sum + (asset.value ?? 0), 0),
-)
+/* ------------------------------------------------------------------ */
+/* Assets summary (dari store)                                         */
+/* ------------------------------------------------------------------ */
+const assets = computed(() => financeStore.assets)
+const totalAssetValue = computed(() => financeStore.totalAssetValue)
 
 /* ------------------------------------------------------------------ */
 /* Financial Health Score (dihitung dari data transaksi asli)          */
@@ -269,22 +227,18 @@ const financialHealthScore = computed<number>(() => {
   const income = financeStore.currentMonthIncome
   const expense = financeStore.currentMonthExpense
 
-  // Saving rate: makin besar persentase yang disisakan, makin bagus
   const savingRate = income > 0 ? Math.max(0, (income - expense) / income) : 0
-  const savingScore = Math.min(100, savingRate * 150) // saving 33% -> ~50, saving 66%+ -> 100
+  const savingScore = Math.min(100, savingRate * 150)
 
-  // Spending: makin kecil rasio expense/income, makin bagus
   const spendingRatio = income > 0 ? expense / income : expense > 0 ? 1.5 : 0
   const spendingScore = Math.max(0, 100 - spendingRatio * 70)
 
-  // Budget adherence
   const budgetScore =
     budgets.value.length > 0
       ? 100 -
         budgets.value.reduce((sum, b) => sum + budgetPercentage(b), 0) / budgets.value.length
       : 70
 
-  // Cash flow bulan ini
   const cashFlowScore = financeStore.currentMonthCashFlow >= 0 ? 100 : 30
 
   const score =
@@ -342,23 +296,23 @@ const incomeVsExpensePercentage = computed(() => {
 })
 
 /* ------------------------------------------------------------------ */
-/* Transfer antar akun (manual, hanya menggeser saldo lokal)            */
+/* Transfer antar akun (persist ke finance.json lewat store)            */
 /* ------------------------------------------------------------------ */
 const showTransferForm = ref(false)
 const transferFrom = ref('cash')
 const transferTo = ref('bank')
 const transferAmount = ref<number | null>(null)
 
-function handleTransfer(): void {
+async function handleTransfer(): Promise<void> {
   if (!transferAmount.value || transferAmount.value <= 0 || transferFrom.value === transferTo.value)
     return
 
-  const from = accounts.value.find((a) => a.id === transferFrom.value)
-  const to = accounts.value.find((a) => a.id === transferTo.value)
+  const from = financeStore.accounts.find((a) => a.id === transferFrom.value)
+  const to = financeStore.accounts.find((a) => a.id === transferTo.value)
   if (!from || !to || from.amount < transferAmount.value) return
 
-  from.amount -= transferAmount.value
-  to.amount += transferAmount.value
+  await financeStore.updateAccount(from.id, { amount: from.amount - transferAmount.value })
+  await financeStore.updateAccount(to.id, { amount: to.amount + transferAmount.value })
 
   transferAmount.value = null
   showTransferForm.value = false

@@ -9,10 +9,25 @@ import type {
 } from '../src/types/transaction.js'
 import type { Goal, CreateGoalInput, UpdateGoalInput } from '../src/types/goal.js'
 import type {
-  RoutineActivity,
-  CreateRoutineActivityInput,
-  UpdateRoutineActivityInput,
-} from '../src/types/routine.js'
+  Account,
+  CreateAccountInput,
+  UpdateAccountInput,
+  Budget,
+  CreateBudgetInput,
+  UpdateBudgetInput,
+  SavingsGoal,
+  CreateSavingsGoalInput,
+  UpdateSavingsGoalInput,
+  Bill,
+  CreateBillInput,
+  UpdateBillInput,
+  WishlistItem,
+  CreateWishlistItemInput,
+  UpdateWishlistItemInput,
+  Asset,
+  CreateAssetInput,
+  UpdateAssetInput,
+} from '../src/types/finance.js'
 
 const electronAPI = {
   app: {
@@ -52,6 +67,60 @@ const electronAPI = {
     update: (id: string, input: UpdateTransactionInput): Promise<boolean> =>
       ipcRenderer.invoke('finance:update', id, input),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('finance:delete', id),
+    accounts: {
+      get: (): Promise<Account[]> => ipcRenderer.invoke('finance:accounts:get'),
+      create: (input: CreateAccountInput): Promise<Account> =>
+        ipcRenderer.invoke('finance:accounts:create', input),
+      update: (id: string, input: UpdateAccountInput): Promise<boolean> =>
+        ipcRenderer.invoke('finance:accounts:update', id, input),
+      delete: (id: string): Promise<boolean> =>
+        ipcRenderer.invoke('finance:accounts:delete', id),
+    },
+    budgets: {
+      get: (): Promise<Budget[]> => ipcRenderer.invoke('finance:budgets:get'),
+      create: (input: CreateBudgetInput): Promise<Budget> =>
+        ipcRenderer.invoke('finance:budgets:create', input),
+      update: (id: string, input: UpdateBudgetInput): Promise<boolean> =>
+        ipcRenderer.invoke('finance:budgets:update', id, input),
+      delete: (id: string): Promise<boolean> =>
+        ipcRenderer.invoke('finance:budgets:delete', id),
+    },
+    goals: {
+      get: (): Promise<SavingsGoal[]> => ipcRenderer.invoke('finance:goals:get'),
+      create: (input: CreateSavingsGoalInput): Promise<SavingsGoal> =>
+        ipcRenderer.invoke('finance:goals:create', input),
+      update: (id: string, input: UpdateSavingsGoalInput): Promise<boolean> =>
+        ipcRenderer.invoke('finance:goals:update', id, input),
+      delete: (id: string): Promise<boolean> =>
+        ipcRenderer.invoke('finance:goals:delete', id),
+    },
+    bills: {
+      get: (): Promise<Bill[]> => ipcRenderer.invoke('finance:bills:get'),
+      create: (input: CreateBillInput): Promise<Bill> =>
+        ipcRenderer.invoke('finance:bills:create', input),
+      update: (id: string, input: UpdateBillInput): Promise<boolean> =>
+        ipcRenderer.invoke('finance:bills:update', id, input),
+      delete: (id: string): Promise<boolean> =>
+        ipcRenderer.invoke('finance:bills:delete', id),
+    },
+    wishlist: {
+      get: (): Promise<WishlistItem[]> => ipcRenderer.invoke('finance:wishlist:get'),
+      create: (input: CreateWishlistItemInput): Promise<WishlistItem> =>
+        ipcRenderer.invoke('finance:wishlist:create', input),
+      update: (id: string, input: UpdateWishlistItemInput): Promise<boolean> =>
+        ipcRenderer.invoke('finance:wishlist:update', id, input),
+      delete: (id: string): Promise<boolean> =>
+        ipcRenderer.invoke('finance:wishlist:delete', id),
+    },
+    assets: {
+      get: (): Promise<Asset[]> => ipcRenderer.invoke('finance:assets:get'),
+      create: (input: CreateAssetInput): Promise<Asset> =>
+        ipcRenderer.invoke('finance:assets:create', input),
+      update: (id: string, input: UpdateAssetInput): Promise<boolean> =>
+        ipcRenderer.invoke('finance:assets:update', id, input),
+      delete: (id: string): Promise<boolean> =>
+        ipcRenderer.invoke('finance:assets:delete', id),
+    },
   },
   goals: {
     get: (): Promise<Goal[]> => ipcRenderer.invoke('goals:get'),
@@ -60,14 +129,6 @@ const electronAPI = {
     update: (id: string, input: UpdateGoalInput): Promise<boolean> =>
       ipcRenderer.invoke('goals:update', id, input),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('goals:delete', id),
-  },
-  routine: {
-    get: (): Promise<RoutineActivity[]> => ipcRenderer.invoke('routine:get'),
-    create: (input: CreateRoutineActivityInput): Promise<RoutineActivity> =>
-      ipcRenderer.invoke('routine:create', input),
-    update: (id: string, input: UpdateRoutineActivityInput): Promise<boolean> =>
-      ipcRenderer.invoke('routine:update', id, input),
-    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('routine:delete', id),
   },
 }
 
