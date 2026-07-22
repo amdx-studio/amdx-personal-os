@@ -19,22 +19,10 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Tasks', subtitle: 'Kelola daftar tugas kamu' },
   },
   {
-    path: '/habits',
-    name: 'habits',
-    component: () => import('../pages/HabitsPage.vue'),
-    meta: { title: 'Habits', subtitle: 'Pantau kebiasaan harian kamu' },
-  },
-  {
     path: '/notes',
     name: 'notes',
     component: () => import('../pages/NotesPage.vue'),
     meta: { title: 'Notes', subtitle: 'Catatan dan ide kamu' },
-  },
-  {
-    path: '/calendar',
-    name: 'calendar',
-    component: () => import('../pages/CalendarPage.vue'),
-    meta: { title: 'Calendar', subtitle: 'Jadwal dan agenda kamu' },
   },
   {
     path: '/finance',
@@ -47,12 +35,6 @@ const routes: RouteRecordRaw[] = [
     name: 'goals',
     component: () => import('../pages/GoalsPage.vue'),
     meta: { title: 'Goals', subtitle: 'Target dan pencapaian kamu' },
-  },
-  {
-    path: '/prayer',
-    name: 'prayer',
-    component: () => import('../pages/PrayerPage.vue'),
-    meta: { title: 'Prayer Time', subtitle: 'Jadwal waktu sholat' },
   },
   {
     path: '/statistics',

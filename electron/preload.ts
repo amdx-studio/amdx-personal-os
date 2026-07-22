@@ -1,20 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppSettings } from '../src/types/settings.js'
 import type { Task, CreateTaskInput, UpdateTaskInput } from '../src/types/task.js'
-import type { Habit, CreateHabitInput } from '../src/types/habit.js'
 import type { Note, CreateNoteInput, UpdateNoteInput } from '../src/types/note.js'
-import type {
-  CalendarEvent,
-  CreateCalendarEventInput,
-  UpdateCalendarEventInput,
-} from '../src/types/calendarEvent.js'
 import type {
   Transaction,
   CreateTransactionInput,
   UpdateTransactionInput,
 } from '../src/types/transaction.js'
 import type { Goal, CreateGoalInput, UpdateGoalInput } from '../src/types/goal.js'
-import type { PrayerSettings } from '../src/types/prayerSettings.js'
 
 const electronAPI = {
   app: {
@@ -39,14 +32,6 @@ const electronAPI = {
     archive: (id: string, archived: boolean): Promise<Task> =>
       ipcRenderer.invoke('tasks:archive', id, archived),
   },
-  habits: {
-    get: (): Promise<Habit[]> => ipcRenderer.invoke('habits:get'),
-    create: (input: CreateHabitInput): Promise<Habit> =>
-      ipcRenderer.invoke('habits:create', input),
-    toggleToday: (id: string): Promise<boolean> =>
-      ipcRenderer.invoke('habits:toggleToday', id),
-    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('habits:delete', id),
-  },
   notes: {
     get: (): Promise<Note[]> => ipcRenderer.invoke('notes:get'),
     create: (input: CreateNoteInput): Promise<Note> =>
@@ -54,14 +39,6 @@ const electronAPI = {
     update: (id: string, input: UpdateNoteInput): Promise<boolean> =>
       ipcRenderer.invoke('notes:update', id, input),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('notes:delete', id),
-  },
-  calendar: {
-    get: (): Promise<CalendarEvent[]> => ipcRenderer.invoke('calendar:get'),
-    create: (input: CreateCalendarEventInput): Promise<CalendarEvent> =>
-      ipcRenderer.invoke('calendar:create', input),
-    update: (id: string, input: UpdateCalendarEventInput): Promise<boolean> =>
-      ipcRenderer.invoke('calendar:update', id, input),
-    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('calendar:delete', id),
   },
   finance: {
     get: (): Promise<Transaction[]> => ipcRenderer.invoke('finance:get'),
@@ -78,11 +55,6 @@ const electronAPI = {
     update: (id: string, input: UpdateGoalInput): Promise<boolean> =>
       ipcRenderer.invoke('goals:update', id, input),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('goals:delete', id),
-  },
-  prayer: {
-    getSettings: (): Promise<PrayerSettings> => ipcRenderer.invoke('prayer:getSettings'),
-    saveSettings: (settings: PrayerSettings): Promise<boolean> =>
-      ipcRenderer.invoke('prayer:saveSettings', settings),
   },
 }
 

@@ -3,12 +3,9 @@ import { useRoute } from 'vue-router'
 import {
   LayoutDashboard,
   CheckSquare,
-  Repeat,
   StickyNote,
-  CalendarDays,
   Wallet,
   Target,
-  Moon,
   BarChart3,
   Settings,
 } from 'lucide-vue-next'
@@ -22,12 +19,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { routeName: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { routeName: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { routeName: 'habits', label: 'Habits', icon: Repeat },
   { routeName: 'notes', label: 'Notes', icon: StickyNote },
-  { routeName: 'calendar', label: 'Calendar', icon: CalendarDays },
   { routeName: 'finance', label: 'Finance', icon: Wallet },
   { routeName: 'goals', label: 'Goals', icon: Target },
-  { routeName: 'prayer', label: 'Prayer Time', icon: Moon },
   { routeName: 'statistics', label: 'Statistics', icon: BarChart3 },
 ]
 

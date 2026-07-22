@@ -190,57 +190,6 @@ function registerTasksHandlers() {
 	});
 }
 //#endregion
-//#region electron/services/habitsService.ts
-var HABITS_FILE = "habits.json";
-var DEFAULT_HABITS = [];
-async function getHabits() {
-	return readJsonFile(HABITS_FILE, DEFAULT_HABITS);
-}
-async function createHabit(input) {
-	const habits = await getHabits();
-	const newHabit = {
-		id: randomUUID(),
-		name: input.name,
-		createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-		completedDates: []
-	};
-	await writeJsonFile(HABITS_FILE, [...habits, newHabit]);
-	return newHabit;
-}
-async function toggleHabitToday(id) {
-	const habits = await getHabits();
-	const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-	await writeJsonFile(HABITS_FILE, habits.map((habit) => {
-		if (habit.id !== id) return habit;
-		const completedDates = habit.completedDates.includes(today) ? habit.completedDates.filter((date) => date !== today) : [...habit.completedDates, today];
-		return {
-			...habit,
-			completedDates
-		};
-	}));
-}
-async function deleteHabit(id) {
-	await writeJsonFile(HABITS_FILE, (await getHabits()).filter((habit) => habit.id !== id));
-}
-//#endregion
-//#region electron/ipc/habitsHandlers.ts
-function registerHabitsHandlers() {
-	ipcMain.handle("habits:get", async () => {
-		return getHabits();
-	});
-	ipcMain.handle("habits:create", async (_event, input) => {
-		return createHabit(input);
-	});
-	ipcMain.handle("habits:toggleToday", async (_event, id) => {
-		await toggleHabitToday(id);
-		return true;
-	});
-	ipcMain.handle("habits:delete", async (_event, id) => {
-		await deleteHabit(id);
-		return true;
-	});
-}
-//#endregion
 //#region electron/services/notesService.ts
 var NOTES_FILE = "notes.json";
 var DEFAULT_NOTES = [];
@@ -288,53 +237,6 @@ function registerNotesHandlers() {
 	});
 	ipcMain.handle("notes:delete", async (_event, id) => {
 		await deleteNote(id);
-		return true;
-	});
-}
-//#endregion
-//#region electron/services/calendarService.ts
-var CALENDAR_FILE = "calendar.json";
-var DEFAULT_EVENTS = [];
-async function getEvents() {
-	return readJsonFile(CALENDAR_FILE, DEFAULT_EVENTS);
-}
-async function createEvent(input) {
-	const events = await getEvents();
-	const newEvent = {
-		id: randomUUID(),
-		title: input.title,
-		date: input.date,
-		time: input.time ?? null,
-		description: input.description ?? "",
-		createdAt: (/* @__PURE__ */ new Date()).toISOString()
-	};
-	await writeJsonFile(CALENDAR_FILE, [...events, newEvent]);
-	return newEvent;
-}
-async function updateEvent(id, input) {
-	await writeJsonFile(CALENDAR_FILE, (await getEvents()).map((event) => event.id === id ? {
-		...event,
-		...input
-	} : event));
-}
-async function deleteEvent(id) {
-	await writeJsonFile(CALENDAR_FILE, (await getEvents()).filter((event) => event.id !== id));
-}
-//#endregion
-//#region electron/ipc/calendarHandlers.ts
-function registerCalendarHandlers() {
-	ipcMain.handle("calendar:get", async () => {
-		return getEvents();
-	});
-	ipcMain.handle("calendar:create", async (_event, input) => {
-		return createEvent(input);
-	});
-	ipcMain.handle("calendar:update", async (_event, id, input) => {
-		await updateEvent(id, input);
-		return true;
-	});
-	ipcMain.handle("calendar:delete", async (_event, id) => {
-		await deleteEvent(id);
 		return true;
 	});
 }
@@ -435,46 +337,13 @@ function registerGoalsHandlers() {
 	});
 }
 //#endregion
-//#region src/types/prayerSettings.ts
-var DEFAULT_PRAYER_SETTINGS = {
-	cityName: "Jakarta",
-	latitude: -6.2088,
-	longitude: 106.8456,
-	timezoneOffset: 7,
-	calculationMethod: "Kemenag",
-	asrMethod: "Shafi"
-};
-//#endregion
-//#region electron/services/prayerSettingsService.ts
-var PRAYER_SETTINGS_FILE = "prayerSettings.json";
-async function getPrayerSettings() {
-	return readJsonFile(PRAYER_SETTINGS_FILE, DEFAULT_PRAYER_SETTINGS);
-}
-async function savePrayerSettings(settings) {
-	await writeJsonFile(PRAYER_SETTINGS_FILE, settings);
-	return true;
-}
-//#endregion
-//#region electron/ipc/prayerHandlers.ts
-function registerPrayerHandlers() {
-	ipcMain.handle("prayer:getSettings", async () => {
-		return getPrayerSettings();
-	});
-	ipcMain.handle("prayer:saveSettings", async (_event, settings) => {
-		return savePrayerSettings(settings);
-	});
-}
-//#endregion
 //#region electron/ipc/index.ts
 function registerAllIpcHandlers() {
 	registerSettingsHandlers();
 	registerTasksHandlers();
-	registerHabitsHandlers();
 	registerNotesHandlers();
-	registerCalendarHandlers();
 	registerFinanceHandlers();
 	registerGoalsHandlers();
-	registerPrayerHandlers();
 }
 //#endregion
 //#region electron/main.ts
