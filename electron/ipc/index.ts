@@ -6,6 +6,7 @@ import { registerNotesHandlers } from './notesHandlers.js'
 import { registerFinanceHandlers } from './financeHandlers.js'
 import { registerGoalsHandlers } from './goalsHandlers.js'
 
+import { registerRoutineHandlers } from './routineHandlers.js'
 
 export function registerAllIpcHandlers(): void {
   registerSettingsHandlers()
@@ -15,6 +16,8 @@ export function registerAllIpcHandlers(): void {
 
   registerFinanceHandlers()
   registerGoalsHandlers()
+
+  registerRoutineHandlers()
 
   // Statistics (10.8) tidak butuh handler baru — cukup agregasi dari data modul lain
 }

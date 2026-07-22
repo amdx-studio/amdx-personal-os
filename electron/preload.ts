@@ -8,6 +8,11 @@ import type {
   UpdateTransactionInput,
 } from '../src/types/transaction.js'
 import type { Goal, CreateGoalInput, UpdateGoalInput } from '../src/types/goal.js'
+import type {
+  RoutineActivity,
+  CreateRoutineActivityInput,
+  UpdateRoutineActivityInput,
+} from '../src/types/routine.js'
 
 const electronAPI = {
   app: {
@@ -55,6 +60,14 @@ const electronAPI = {
     update: (id: string, input: UpdateGoalInput): Promise<boolean> =>
       ipcRenderer.invoke('goals:update', id, input),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('goals:delete', id),
+  },
+  routine: {
+    get: (): Promise<RoutineActivity[]> => ipcRenderer.invoke('routine:get'),
+    create: (input: CreateRoutineActivityInput): Promise<RoutineActivity> =>
+      ipcRenderer.invoke('routine:create', input),
+    update: (id: string, input: UpdateRoutineActivityInput): Promise<boolean> =>
+      ipcRenderer.invoke('routine:update', id, input),
+    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('routine:delete', id),
   },
 }
 
