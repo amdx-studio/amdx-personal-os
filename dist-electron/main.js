@@ -15,35 +15,125 @@ function getFilePath(fileName) {
 	return path.join(getDataDir(), fileName);
 }
 /**
-* Membaca file JSON. Jika file belum ada, otomatis dibuat
-* dengan nilai default yang diberikan.
+* Setiap file (berdasarkan path absolutnya) punya antrean sendiri.
+* Semua operasi baca/tulis/transaksi untuk file yang SAMA dijalankan
+* berurutan (FIFO) — persis seperti Operation A -> B -> C yang diminta.
+* Tidak akan pernah ada dua operasi I/O berjalan bersamaan pada file
+* yang sama.
+*
+* File yang BERBEDA tetap punya antrean terpisah dan berjalan paralel
+* seperti biasa, jadi ini tidak membuat seluruh aplikasi jadi
+* single-threaded — hanya operasi pada file yang sama yang diserialkan.
+*
+* Implementasinya murni chaining Promise, tidak ada dependency baru.
 */
-async function readJsonFile(fileName, defaultValue) {
-	await ensureDataDir();
-	const filePath = getFilePath(fileName);
+var fileQueues = /* @__PURE__ */ new Map();
+function withFileQueue(key, task) {
+	const result = (fileQueues.get(key) ?? Promise.resolve()).then(() => task());
+	const settled = result.then(() => void 0, () => void 0);
+	fileQueues.set(key, settled);
+	settled.finally(() => {
+		if (fileQueues.get(key) === settled) fileQueues.delete(key);
+	});
+	return result;
+}
+async function readFileDirect(filePath, fileName, defaultValue) {
 	try {
 		const raw = await fs.readFile(filePath, "utf-8");
 		return JSON.parse(raw);
 	} catch (error) {
 		if (error.code === "ENOENT") {
-			await writeJsonFile(fileName, defaultValue);
+			await writeFileDirect(filePath, defaultValue);
 			return defaultValue;
 		}
 		throw new Error(`Gagal membaca ${fileName}: ${error.message}`);
 	}
 }
 /**
-* Menulis file JSON secara atomic: tulis ke file sementara
-* dulu, lalu rename. Mencegah file korup jika terjadi crash
-* di tengah proses penulisan.
+* Menulis file secara atomic & durable:
+* 1. Tulis ke file sementara dengan nama UNIK (bukan `${file}.tmp` yang
+*    tetap) -- jadi walau ada bug lain yang memanggil ini tanpa antrean,
+*    dua write tidak akan pernah rebutan nama file sementara yang sama.
+* 2. fsync isi file temp ke disk (bukan cuma masuk OS buffer).
+* 3. rename() ke nama final -- rename dalam satu filesystem bersifat
+*    atomic di level OS, jadi tidak pernah ada state "file setengah
+*    tertulis" yang terbaca oleh proses lain.
+* 4. fsync direktori supaya rename-nya sendiri juga persisten di disk
+*    (best practice Linux/macOS; di Windows fsync direktori tidak
+*    didukung, jadi error di langkah ini diabaikan karena tidak fatal).
+* 5. Kalau ada error di tengah jalan, file temp dibersihkan supaya
+*    tidak ada sampah `.tmp` yang menumpuk.
+*/
+async function writeFileDirect(filePath, data) {
+	const dir = path.dirname(filePath);
+	const tempPath = `${filePath}.${process.pid}-${randomUUID()}.tmp`;
+	const content = JSON.stringify(data, null, 2);
+	let fileHandle;
+	try {
+		fileHandle = await fs.open(tempPath, "w");
+		await fileHandle.writeFile(content, "utf-8");
+		await fileHandle.sync();
+		await fileHandle.close();
+		fileHandle = void 0;
+		await fs.rename(tempPath, filePath);
+		try {
+			const dirHandle = await fs.open(dir, "r");
+			try {
+				await dirHandle.sync();
+			} finally {
+				await dirHandle.close();
+			}
+		} catch {}
+	} catch (error) {
+		if (fileHandle) await fileHandle.close().catch(() => {});
+		await fs.rm(tempPath, { force: true }).catch(() => {});
+		throw error;
+	}
+}
+/**
+* Membaca file JSON. Jika file belum ada, otomatis dibuat dengan nilai
+* default yang diberikan.
+*
+* Dijalankan lewat antrean per-file, jadi tidak akan pernah membaca
+* file di tengah-tengah proses tulis file yang sama sedang berlangsung.
+*/
+async function readJsonFile(fileName, defaultValue) {
+	await ensureDataDir();
+	const filePath = getFilePath(fileName);
+	return withFileQueue(filePath, () => readFileDirect(filePath, fileName, defaultValue));
+}
+/**
+* Menulis file JSON secara atomic & durable (lihat writeFileDirect).
+*
+* Dijalankan lewat antrean per-file, sehingga dua pemanggilan
+* writeJsonFile() untuk file yang sama TIDAK PERNAH berjalan
+* bersamaan -- inilah yang menghilangkan error ENOENT saat rename.
 */
 async function writeJsonFile(fileName, data) {
 	await ensureDataDir();
 	const filePath = getFilePath(fileName);
-	const tempPath = `${filePath}.tmp`;
-	const content = JSON.stringify(data, null, 2);
-	await fs.writeFile(tempPath, content, "utf-8");
-	await fs.rename(tempPath, filePath);
+	return withFileQueue(filePath, () => writeFileDirect(filePath, data));
+}
+/**
+* Menjalankan `run` secara EKSKLUSIF untuk satu file: selama `run`
+* berjalan, tidak ada readJsonFile/writeJsonFile/withFileTransaction
+* LAIN untuk file yang sama yang bisa menyela di tengah-tengah.
+*
+* Ini untuk pola "baca semua data -> ubah sebagian -> simpan lagi"
+* (read-modify-write) seperti yang dipakai financeService. Tanpa ini,
+* dua operasi read-modify-write yang berjalan bersamaan tetap bisa
+* saling menimpa perubahan satu sama lain (lost update) walaupun
+* masing-masing write individualnya sudah aman secara file I/O.
+*/
+async function withFileTransaction(fileName, run) {
+	await ensureDataDir();
+	const filePath = getFilePath(fileName);
+	return withFileQueue(filePath, () => {
+		return run({
+			read: (defaultValue) => readFileDirect(filePath, fileName, defaultValue),
+			write: (data) => writeFileDirect(filePath, data)
+		});
+	});
 }
 //#endregion
 //#region src/types/settings.ts
@@ -449,21 +539,47 @@ function migrateFinanceData(raw) {
 		assets: Array.isArray(partial.assets) ? partial.assets : defaults.assets
 	};
 }
-async function loadFinanceData() {
-	const raw = await readJsonFile(FINANCE_FILE, createDefaultFinanceData());
-	if (isFinanceData(raw)) return raw;
-	const migrated = migrateFinanceData(raw);
-	await writeJsonFile(FINANCE_FILE, migrated);
-	return migrated;
+/**
+* Mengambil finance data untuk keperluan BACA saja (get*).
+*
+* Tetap dijalankan lewat withFileTransaction supaya pembacaan ini
+* ikut masuk antrean file yang sama -- jadi tidak pernah membaca state
+* "setengah jalan" di tengah operasi tulis lain yang sedang berlangsung.
+*/
+async function readFinanceData() {
+	return withFileTransaction(FINANCE_FILE, async (ctx) => {
+		const raw = await ctx.read(createDefaultFinanceData());
+		if (isFinanceData(raw)) return raw;
+		const migrated = migrateFinanceData(raw);
+		await ctx.write(migrated);
+		return migrated;
+	});
 }
-async function persistFinanceData(data) {
-	await writeJsonFile(FINANCE_FILE, data);
+/**
+* Inti dari perbaikan race condition: seluruh siklus
+* "baca finance.json -> ubah -> simpan lagi" dijalankan sebagai SATU
+* unit atomik di dalam antrean per-file (withFileTransaction).
+*
+* Sebelumnya, create/update/delete masing-masing memanggil
+* loadFinanceData() dan persistFinanceData() secara terpisah, sehingga
+* dua operasi yang berjalan bersamaan bisa baca state yang sama lalu
+* saling menimpa perubahan satu sama lain (lost update). Dengan
+* mutateFinanceData(), tidak ada operasi finance.json lain yang bisa
+* menyela di antara "baca" dan "simpan".
+*/
+async function mutateFinanceData(mutator) {
+	return withFileTransaction(FINANCE_FILE, async (ctx) => {
+		const raw = await ctx.read(createDefaultFinanceData());
+		const data = isFinanceData(raw) ? raw : migrateFinanceData(raw);
+		const result = await mutator(data);
+		await ctx.write(data);
+		return result;
+	});
 }
 async function getTransactions() {
-	return (await loadFinanceData()).transactions;
+	return (await readFinanceData()).transactions;
 }
 async function createTransaction(input) {
-	const data = await loadFinanceData();
 	const newTransaction = {
 		id: randomUUID(),
 		type: input.type,
@@ -471,30 +587,31 @@ async function createTransaction(input) {
 		category: input.category,
 		date: input.date,
 		description: input.description ?? "",
+		accountId: input.accountId,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.transactions = [...data.transactions, newTransaction];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.transactions = [...data.transactions, newTransaction];
+	});
 	return newTransaction;
 }
 async function updateTransaction(id, input) {
-	const data = await loadFinanceData();
-	data.transactions = data.transactions.map((transaction) => transaction.id === id ? {
-		...transaction,
-		...input
-	} : transaction);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.transactions = data.transactions.map((transaction) => transaction.id === id ? {
+			...transaction,
+			...input
+		} : transaction);
+	});
 }
 async function deleteTransaction(id) {
-	const data = await loadFinanceData();
-	data.transactions = data.transactions.filter((transaction) => transaction.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.transactions = data.transactions.filter((transaction) => transaction.id !== id);
+	});
 }
 async function getAccounts() {
-	return (await loadFinanceData()).accounts;
+	return (await readFinanceData()).accounts;
 }
 async function createAccount(input) {
-	const data = await loadFinanceData();
 	const newAccount = {
 		id: input.id ?? randomUUID(),
 		label: input.label,
@@ -502,56 +619,56 @@ async function createAccount(input) {
 		amount: input.amount,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.accounts = [...data.accounts, newAccount];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.accounts = [...data.accounts, newAccount];
+	});
 	return newAccount;
 }
 async function updateAccount(id, input) {
-	const data = await loadFinanceData();
-	data.accounts = data.accounts.map((account) => account.id === id ? {
-		...account,
-		...input
-	} : account);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.accounts = data.accounts.map((account) => account.id === id ? {
+			...account,
+			...input
+		} : account);
+	});
 }
 async function deleteAccount(id) {
-	const data = await loadFinanceData();
-	data.accounts = data.accounts.filter((account) => account.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.accounts = data.accounts.filter((account) => account.id !== id);
+	});
 }
 async function getBudgets() {
-	return (await loadFinanceData()).budgets;
+	return (await readFinanceData()).budgets;
 }
 async function createBudget(input) {
-	const data = await loadFinanceData();
 	const newBudget = {
 		id: randomUUID(),
 		category: input.category,
 		limit: input.limit,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.budgets = [...data.budgets, newBudget];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.budgets = [...data.budgets, newBudget];
+	});
 	return newBudget;
 }
 async function updateBudget(id, input) {
-	const data = await loadFinanceData();
-	data.budgets = data.budgets.map((budget) => budget.id === id ? {
-		...budget,
-		...input
-	} : budget);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.budgets = data.budgets.map((budget) => budget.id === id ? {
+			...budget,
+			...input
+		} : budget);
+	});
 }
 async function deleteBudget(id) {
-	const data = await loadFinanceData();
-	data.budgets = data.budgets.filter((budget) => budget.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.budgets = data.budgets.filter((budget) => budget.id !== id);
+	});
 }
 async function getSavingsGoals() {
-	return (await loadFinanceData()).goals;
+	return (await readFinanceData()).goals;
 }
 async function createSavingsGoal(input) {
-	const data = await loadFinanceData();
 	const newGoal = {
 		id: randomUUID(),
 		name: input.name,
@@ -559,28 +676,28 @@ async function createSavingsGoal(input) {
 		current: input.current ?? 0,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.goals = [...data.goals, newGoal];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.goals = [...data.goals, newGoal];
+	});
 	return newGoal;
 }
 async function updateSavingsGoal(id, input) {
-	const data = await loadFinanceData();
-	data.goals = data.goals.map((goal) => goal.id === id ? {
-		...goal,
-		...input
-	} : goal);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.goals = data.goals.map((goal) => goal.id === id ? {
+			...goal,
+			...input
+		} : goal);
+	});
 }
 async function deleteSavingsGoal(id) {
-	const data = await loadFinanceData();
-	data.goals = data.goals.filter((goal) => goal.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.goals = data.goals.filter((goal) => goal.id !== id);
+	});
 }
 async function getBills() {
-	return (await loadFinanceData()).bills;
+	return (await readFinanceData()).bills;
 }
 async function createBill(input) {
-	const data = await loadFinanceData();
 	const newBill = {
 		id: randomUUID(),
 		name: input.name,
@@ -588,78 +705,79 @@ async function createBill(input) {
 		dueDate: input.dueDate,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.bills = [...data.bills, newBill];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.bills = [...data.bills, newBill];
+	});
 	return newBill;
 }
 async function updateBill(id, input) {
-	const data = await loadFinanceData();
-	data.bills = data.bills.map((bill) => bill.id === id ? {
-		...bill,
-		...input
-	} : bill);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.bills = data.bills.map((bill) => bill.id === id ? {
+			...bill,
+			...input
+		} : bill);
+	});
 }
 async function deleteBill(id) {
-	const data = await loadFinanceData();
-	data.bills = data.bills.filter((bill) => bill.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.bills = data.bills.filter((bill) => bill.id !== id);
+	});
 }
 async function getWishlist() {
-	return (await loadFinanceData()).wishlist;
+	return (await readFinanceData()).wishlist;
 }
 async function createWishlistItem(input) {
-	const data = await loadFinanceData();
 	const newItem = {
 		id: randomUUID(),
 		name: input.name,
 		price: input.price,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.wishlist = [...data.wishlist, newItem];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.wishlist = [...data.wishlist, newItem];
+	});
 	return newItem;
 }
 async function updateWishlistItem(id, input) {
-	const data = await loadFinanceData();
-	data.wishlist = data.wishlist.map((item) => item.id === id ? {
-		...item,
-		...input
-	} : item);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.wishlist = data.wishlist.map((item) => item.id === id ? {
+			...item,
+			...input
+		} : item);
+	});
 }
 async function deleteWishlistItem(id) {
-	const data = await loadFinanceData();
-	data.wishlist = data.wishlist.filter((item) => item.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.wishlist = data.wishlist.filter((item) => item.id !== id);
+	});
 }
 async function getAssets() {
-	return (await loadFinanceData()).assets;
+	return (await readFinanceData()).assets;
 }
 async function createAsset(input) {
-	const data = await loadFinanceData();
 	const newAsset = {
 		id: randomUUID(),
 		name: input.name,
 		value: input.value,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
-	data.assets = [...data.assets, newAsset];
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.assets = [...data.assets, newAsset];
+	});
 	return newAsset;
 }
 async function updateAsset(id, input) {
-	const data = await loadFinanceData();
-	data.assets = data.assets.map((asset) => asset.id === id ? {
-		...asset,
-		...input
-	} : asset);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.assets = data.assets.map((asset) => asset.id === id ? {
+			...asset,
+			...input
+		} : asset);
+	});
 }
 async function deleteAsset(id) {
-	const data = await loadFinanceData();
-	data.assets = data.assets.filter((asset) => asset.id !== id);
-	await persistFinanceData(data);
+	await mutateFinanceData((data) => {
+		data.assets = data.assets.filter((asset) => asset.id !== id);
+	});
 }
 //#endregion
 //#region electron/ipc/financeHandlers.ts

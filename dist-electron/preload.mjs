@@ -69,6 +69,12 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
 		create: (input) => electron.ipcRenderer.invoke("goals:create", input),
 		update: (id, input) => electron.ipcRenderer.invoke("goals:update", id, input),
 		delete: (id) => electron.ipcRenderer.invoke("goals:delete", id)
+	},
+	routine: {
+		get: () => electron.ipcRenderer.invoke("routine:get"),
+		create: (input) => electron.ipcRenderer.invoke("routine:create", input),
+		update: (id, input) => electron.ipcRenderer.invoke("routine:update", id, input),
+		delete: (id) => electron.ipcRenderer.invoke("routine:delete", id)
 	}
 });
 //#endregion

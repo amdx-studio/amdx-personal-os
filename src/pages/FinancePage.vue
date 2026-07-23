@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import {
   Plus,
   Trash2,
+  Pencil,
   TrendingUp,
   TrendingDown,
   Wallet,
@@ -41,6 +42,7 @@ const newAmount = ref<number | null>(null)
 const newCategory = ref('')
 const newDate = ref(dayjs().format('YYYY-MM-DD'))
 const newDescription = ref('')
+const newAccountId = ref('cash')
 
 onMounted(() => {
   financeStore.loadFinanceData()
@@ -56,12 +58,23 @@ function formatCurrency(value: number): string {
 
 function openForm(type: TransactionType): void {
   newType.value = type
+  if (!newAccountId.value && accounts.value.length > 0) {
+    newAccountId.value = accounts.value[0].id
+  }
   showForm.value = true
 }
 
 async function handleAddTransaction(): Promise<void> {
   const category = newCategory.value.trim()
-  if (!category || newAmount.value === null || newAmount.value <= 0) return
+  if (!category || newAmount.value === null || newAmount.value <= 0 || !newAccountId.value) return
+
+  if (newType.value === 'expense') {
+    const sourceAccount = financeStore.accounts.find((a) => a.id === newAccountId.value)
+    if (sourceAccount && sourceAccount.amount < newAmount.value) {
+      alert(`Saldo ${sourceAccount.label} tidak cukup untuk pengeluaran ini.`)
+      return
+    }
+  }
 
   await financeStore.createTransaction({
     type: newType.value,
@@ -69,6 +82,7 @@ async function handleAddTransaction(): Promise<void> {
     category,
     date: newDate.value,
     description: newDescription.value.trim() || undefined,
+    accountId: newAccountId.value,
   })
 
   newAmount.value = null
@@ -125,6 +139,11 @@ const accounts = computed<AccountBalance[]>(() =>
   })),
 )
 
+function accountLabel(accountId?: string): string {
+  if (!accountId) return '-'
+  return financeStore.accounts.find((a) => a.id === accountId)?.label ?? '-'
+}
+
 const totalBalance = computed<number>(() => financeStore.totalBalance)
 
 /* ------------------------------------------------------------------ */
@@ -169,7 +188,7 @@ async function addBudget(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Savings goals (dari store)                                          */
+/* Savings goals (dari store) — tambah / edit / hapus                  */
 /* ------------------------------------------------------------------ */
 const goals = computed(() => financeStore.goals)
 
@@ -179,46 +198,226 @@ function goalPercentage(goal: { target: number; current: number }): number {
 }
 
 const showGoalForm = ref(false)
+const editingGoalId = ref<string | null>(null)
 const newGoalName = ref('')
 const newGoalTarget = ref<number | null>(null)
+const newGoalCurrent = ref<number | null>(null)
 
-async function addGoal(): Promise<void> {
+function openGoalForm(goal?: { id: string; name: string; target: number; current: number }): void {
+  if (goal) {
+    editingGoalId.value = goal.id
+    newGoalName.value = goal.name
+    newGoalTarget.value = goal.target
+    newGoalCurrent.value = goal.current
+  } else {
+    editingGoalId.value = null
+    newGoalName.value = ''
+    newGoalTarget.value = null
+    newGoalCurrent.value = null
+  }
+  showGoalForm.value = true
+}
+
+async function saveGoal(): Promise<void> {
   const name = newGoalName.value.trim()
   if (!name || !newGoalTarget.value || newGoalTarget.value <= 0) return
 
-  await financeStore.createGoal({
-    name,
-    target: newGoalTarget.value,
-  })
+  if (editingGoalId.value) {
+    await financeStore.updateGoal(editingGoalId.value, {
+      name,
+      target: newGoalTarget.value,
+      current: newGoalCurrent.value ?? undefined,
+    })
+  } else {
+    await financeStore.createGoal({
+      name,
+      target: newGoalTarget.value,
+    })
+  }
 
+  cancelGoalForm()
+}
+
+function cancelGoalForm(): void {
+  showGoalForm.value = false
+  editingGoalId.value = null
   newGoalName.value = ''
   newGoalTarget.value = null
-  showGoalForm.value = false
+  newGoalCurrent.value = null
+}
+
+async function removeGoal(id: string): Promise<void> {
+  await financeStore.deleteGoal(id)
 }
 
 /* ------------------------------------------------------------------ */
-/* Upcoming bills (dari store)                                         */
+/* Upcoming bills (dari store) — tambah / edit / hapus                 */
 /* ------------------------------------------------------------------ */
 const bills = computed(() => financeStore.bills)
+
+const showBillForm = ref(false)
+const editingBillId = ref<string | null>(null)
+const newBillName = ref('')
+const newBillAmount = ref<number | null>(null)
+const newBillDueDate = ref(dayjs().format('YYYY-MM-DD'))
+
+function openBillForm(bill?: { id: string; name: string; amount: number; dueDate: string }): void {
+  if (bill) {
+    editingBillId.value = bill.id
+    newBillName.value = bill.name
+    newBillAmount.value = bill.amount
+    newBillDueDate.value = bill.dueDate
+  } else {
+    editingBillId.value = null
+    newBillName.value = ''
+    newBillAmount.value = null
+    newBillDueDate.value = dayjs().format('YYYY-MM-DD')
+  }
+  showBillForm.value = true
+}
+
+async function saveBill(): Promise<void> {
+  const name = newBillName.value.trim()
+  if (!name || !newBillAmount.value || newBillAmount.value <= 0 || !newBillDueDate.value) return
+
+  if (editingBillId.value) {
+    await financeStore.updateBill(editingBillId.value, {
+      name,
+      amount: newBillAmount.value,
+      dueDate: newBillDueDate.value,
+    })
+  } else {
+    await financeStore.createBill({
+      name,
+      amount: newBillAmount.value,
+      dueDate: newBillDueDate.value,
+    })
+  }
+
+  cancelBillForm()
+}
+
+function cancelBillForm(): void {
+  showBillForm.value = false
+  editingBillId.value = null
+  newBillName.value = ''
+  newBillAmount.value = null
+  newBillDueDate.value = dayjs().format('YYYY-MM-DD')
+}
 
 async function removeBill(id: string): Promise<void> {
   await financeStore.deleteBill(id)
 }
 
 /* ------------------------------------------------------------------ */
-/* Wishlist (dari store)                                               */
+/* Wishlist (dari store) — tambah / edit / hapus                       */
 /* ------------------------------------------------------------------ */
 const wishlist = computed(() => financeStore.wishlist)
+
+const showWishlistForm = ref(false)
+const editingWishlistId = ref<string | null>(null)
+const newWishlistName = ref('')
+const newWishlistPrice = ref<number | null>(null)
+
+function openWishlistForm(item?: { id: string; name: string; price?: number }): void {
+  if (item) {
+    editingWishlistId.value = item.id
+    newWishlistName.value = item.name
+    newWishlistPrice.value = item.price ?? null
+  } else {
+    editingWishlistId.value = null
+    newWishlistName.value = ''
+    newWishlistPrice.value = null
+  }
+  showWishlistForm.value = true
+}
+
+async function saveWishlistItem(): Promise<void> {
+  const name = newWishlistName.value.trim()
+  if (!name) return
+
+  if (editingWishlistId.value) {
+    await financeStore.updateWishlistItem(editingWishlistId.value, {
+      name,
+      price: newWishlistPrice.value ?? undefined,
+    })
+  } else {
+    await financeStore.createWishlistItem({
+      name,
+      price: newWishlistPrice.value ?? undefined,
+    })
+  }
+
+  cancelWishlistForm()
+}
+
+function cancelWishlistForm(): void {
+  showWishlistForm.value = false
+  editingWishlistId.value = null
+  newWishlistName.value = ''
+  newWishlistPrice.value = null
+}
 
 async function removeWishlistItem(id: string): Promise<void> {
   await financeStore.deleteWishlistItem(id)
 }
 
 /* ------------------------------------------------------------------ */
-/* Assets summary (dari store)                                         */
+/* Assets summary (dari store) — bisa tambah/edit/hapus                */
 /* ------------------------------------------------------------------ */
 const assets = computed(() => financeStore.assets)
 const totalAssetValue = computed(() => financeStore.totalAssetValue)
+
+const showAssetForm = ref(false)
+const editingAssetId = ref<string | null>(null)
+const newAssetName = ref('')
+const newAssetValue = ref<number | null>(null)
+
+function openAssetForm(asset?: { id: string; name: string; value?: number }): void {
+  if (asset) {
+    editingAssetId.value = asset.id
+    newAssetName.value = asset.name
+    newAssetValue.value = asset.value ?? null
+  } else {
+    editingAssetId.value = null
+    newAssetName.value = ''
+    newAssetValue.value = null
+  }
+  showAssetForm.value = true
+}
+
+async function saveAsset(): Promise<void> {
+  const name = newAssetName.value.trim()
+  if (!name) return
+
+  if (editingAssetId.value) {
+    await financeStore.updateAsset(editingAssetId.value, {
+      name,
+      value: newAssetValue.value ?? undefined,
+    })
+  } else {
+    await financeStore.createAsset({
+      name,
+      value: newAssetValue.value ?? undefined,
+    })
+  }
+
+  showAssetForm.value = false
+  editingAssetId.value = null
+  newAssetName.value = ''
+  newAssetValue.value = null
+}
+
+function cancelAssetForm(): void {
+  showAssetForm.value = false
+  editingAssetId.value = null
+  newAssetName.value = ''
+  newAssetValue.value = null
+}
+
+async function removeAsset(id: string): Promise<void> {
+  await financeStore.deleteAsset(id)
+}
 
 /* ------------------------------------------------------------------ */
 /* Financial Health Score (dihitung dari data transaksi asli)          */
@@ -317,13 +516,23 @@ async function handleTransfer(): Promise<void> {
   transferAmount.value = null
   showTransferForm.value = false
 }
+
+/* ------------------------------------------------------------------ */
+/* Reset semua data finance                                            */
+/* ------------------------------------------------------------------ */
+async function handleResetFinanceData(): Promise<void> {
+  const confirmed = confirm(
+    'Yakin mau hapus semua data finance (transaksi, budget, goal, tagihan, wishlist, aset) dan reset saldo semua akun ke 0? Aksi ini tidak bisa dibatalkan.',
+  )
+  if (!confirmed) return
+  await financeStore.resetFinanceData()
+}
 </script>
 
 <template>
   <div class="space-y-6">
     <!-- ================= DASHBOARD CARDS ================= -->
     <div>
-      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">Ringkasan</h2>
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <SummaryCard label="Total Balance" :value="formatCurrency(totalBalance)" :icon="Wallet" />
         <SummaryCard label="Cash" :value="formatCurrency(accounts[0].amount)" :icon="Wallet" />
@@ -348,10 +557,6 @@ async function handleTransfer(): Promise<void> {
         />
         <SummaryCard label="Remaining Budget" :value="formatCurrency(remainingBudget)" :icon="Target" />
       </div>
-      <p class="mt-2 text-xs text-ink-subtle">
-        * Cash, Bank, E-Wallet, Savings, dan Investments masih berupa data manual (belum tersambung
-        otomatis ke transaksi).
-      </p>
     </div>
 
     <!-- ================= QUICK ACTIONS ================= -->
@@ -380,7 +585,7 @@ async function handleTransfer(): Promise<void> {
       <button
         type="button"
         class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent"
-        @click="showGoalForm = !showGoalForm"
+        @click="openGoalForm()"
       >
         <Target class="h-4 w-4" /> Add Goal
       </button>
@@ -390,6 +595,13 @@ async function handleTransfer(): Promise<void> {
         @click="showBudgetForm = !showBudgetForm"
       >
         <ListChecks class="h-4 w-4" /> Create Budget
+      </button>
+      <button
+        type="button"
+        class="ml-auto flex items-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
+        @click="handleResetFinanceData"
+      >
+        <Trash2 class="h-4 w-4" /> Reset Semua Data
       </button>
     </div>
 
@@ -405,6 +617,14 @@ async function handleTransfer(): Promise<void> {
       >
         <option value="expense">Pengeluaran</option>
         <option value="income">Pemasukan</option>
+      </select>
+      <select
+        v-model="newAccountId"
+        class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+      >
+        <option v-for="account in accounts" :key="account.id" :value="account.id">
+          {{ newType === 'income' ? 'Masuk ke: ' : 'Keluar dari: ' }}{{ account.label }}
+        </option>
       </select>
       <input
         v-model.number="newAmount"
@@ -472,33 +692,6 @@ async function handleTransfer(): Promise<void> {
         class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover sm:col-span-3"
       >
         Transfer
-      </button>
-    </form>
-
-    <!-- Form goal -->
-    <form
-      v-if="showGoalForm"
-      class="grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-3"
-      @submit.prevent="addGoal"
-    >
-      <input
-        v-model="newGoalName"
-        type="text"
-        placeholder="Nama target (mis. Laptop Baru)"
-        class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-2"
-      />
-      <input
-        v-model.number="newGoalTarget"
-        type="number"
-        min="0"
-        placeholder="Target (Rp)"
-        class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-      />
-      <button
-        type="submit"
-        class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover sm:col-span-3"
-      >
-        Simpan Goal
       </button>
     </form>
 
@@ -737,14 +930,83 @@ async function handleTransfer(): Promise<void> {
 
       <!-- ================= SAVINGS GOALS + UPCOMING BILLS ================= -->
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <!-- Savings Goals — bisa tambah/edit/hapus -->
         <div class="rounded-xl border border-border bg-surface p-4">
-          <h3 class="mb-3 text-sm font-semibold text-ink">Savings Goals</h3>
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-ink">Savings Goals</h3>
+            <button
+              type="button"
+              class="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover"
+              @click="openGoalForm()"
+            >
+              <Plus class="h-3.5 w-3.5" /> Tambah
+            </button>
+          </div>
+
+          <form
+            v-if="showGoalForm"
+            class="mb-3 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3"
+            @submit.prevent="saveGoal"
+          >
+            <input
+              v-model="newGoalName"
+              type="text"
+              placeholder="Nama target (mis. Laptop Baru)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-3"
+            />
+            <input
+              v-model.number="newGoalTarget"
+              type="number"
+              min="0"
+              placeholder="Target (Rp)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            <input
+              v-model.number="newGoalCurrent"
+              type="number"
+              min="0"
+              placeholder="Terkumpul (Rp)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-2"
+            />
+            <div class="flex gap-2 sm:col-span-3">
+              <button
+                type="submit"
+                class="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              >
+                {{ editingGoalId ? 'Simpan Perubahan' : 'Tambah Goal' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-border px-4 py-2 text-sm text-ink-muted hover:border-accent"
+                @click="cancelGoalForm"
+              >
+                Batal
+              </button>
+            </div>
+          </form>
+
           <div v-if="goals.length === 0" class="text-xs text-ink-muted">Belum ada target tabungan.</div>
           <div v-else class="space-y-3">
-            <div v-for="goal in goals" :key="goal.id">
-              <div class="mb-1 flex justify-between text-xs text-ink-muted">
+            <div v-for="goal in goals" :key="goal.id" class="group">
+              <div class="mb-1 flex items-center justify-between text-xs text-ink-muted">
                 <span>{{ goal.name }}</span>
-                <span>{{ formatCurrency(goal.current) }} / {{ formatCurrency(goal.target) }}</span>
+                <div class="flex items-center gap-2">
+                  <span>{{ formatCurrency(goal.current) }} / {{ formatCurrency(goal.target) }}</span>
+                  <button
+                    type="button"
+                    class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-accent"
+                    @click="openGoalForm(goal)"
+                  >
+                    <Pencil class="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-red-500"
+                    @click="removeGoal(goal.id)"
+                  >
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               <div class="h-2 w-full rounded-full bg-border">
                 <div class="h-2 rounded-full bg-accent" :style="{ width: goalPercentage(goal) + '%' }" />
@@ -754,8 +1016,59 @@ async function handleTransfer(): Promise<void> {
           </div>
         </div>
 
+        <!-- Upcoming Bills — bisa tambah/edit/hapus -->
         <div class="rounded-xl border border-border bg-surface p-4">
-          <h3 class="mb-3 text-sm font-semibold text-ink">Upcoming Bills</h3>
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-ink">Upcoming Bills</h3>
+            <button
+              type="button"
+              class="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover"
+              @click="openBillForm()"
+            >
+              <Plus class="h-3.5 w-3.5" /> Tambah
+            </button>
+          </div>
+
+          <form
+            v-if="showBillForm"
+            class="mb-3 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3"
+            @submit.prevent="saveBill"
+          >
+            <input
+              v-model="newBillName"
+              type="text"
+              placeholder="Nama tagihan (mis. Listrik)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-3"
+            />
+            <input
+              v-model.number="newBillAmount"
+              type="number"
+              min="0"
+              placeholder="Jumlah (Rp)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            <input
+              v-model="newBillDueDate"
+              type="date"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-2"
+            />
+            <div class="flex gap-2 sm:col-span-3">
+              <button
+                type="submit"
+                class="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              >
+                {{ editingBillId ? 'Simpan Perubahan' : 'Tambah Tagihan' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-border px-4 py-2 text-sm text-ink-muted hover:border-accent"
+                @click="cancelBillForm"
+              >
+                Batal
+              </button>
+            </div>
+          </form>
+
           <ul class="space-y-2">
             <li
               v-for="bill in bills"
@@ -773,6 +1086,13 @@ async function handleTransfer(): Promise<void> {
                 <span class="text-sm font-medium text-ink">{{ formatCurrency(bill.amount) }}</span>
                 <button
                   type="button"
+                  class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-accent"
+                  @click="openBillForm(bill)"
+                >
+                  <Pencil class="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-red-500"
                   @click="removeBill(bill.id)"
                 >
@@ -786,8 +1106,54 @@ async function handleTransfer(): Promise<void> {
 
       <!-- ================= WISHLIST + ASSETS ================= -->
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <!-- Wishlist — bisa tambah/edit/hapus -->
         <div class="rounded-xl border border-border bg-surface p-4">
-          <h3 class="mb-3 text-sm font-semibold text-ink">Wishlist</h3>
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-ink">Wishlist</h3>
+            <button
+              type="button"
+              class="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover"
+              @click="openWishlistForm()"
+            >
+              <Plus class="h-3.5 w-3.5" /> Tambah
+            </button>
+          </div>
+
+          <form
+            v-if="showWishlistForm"
+            class="mb-3 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3"
+            @submit.prevent="saveWishlistItem"
+          >
+            <input
+              v-model="newWishlistName"
+              type="text"
+              placeholder="Nama barang (mis. Headphone)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-2"
+            />
+            <input
+              v-model.number="newWishlistPrice"
+              type="number"
+              min="0"
+              placeholder="Harga (Rp)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            <div class="flex gap-2 sm:col-span-3">
+              <button
+                type="submit"
+                class="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              >
+                {{ editingWishlistId ? 'Simpan Perubahan' : 'Tambah Barang' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-border px-4 py-2 text-sm text-ink-muted hover:border-accent"
+                @click="cancelWishlistForm"
+              >
+                Batal
+              </button>
+            </div>
+          </form>
+
           <ul class="space-y-2">
             <li
               v-for="item in wishlist"
@@ -797,6 +1163,13 @@ async function handleTransfer(): Promise<void> {
               <span class="text-sm text-ink">{{ item.name }}</span>
               <div class="flex items-center gap-2">
                 <span v-if="item.price" class="text-xs text-ink-muted">{{ formatCurrency(item.price) }}</span>
+                <button
+                  type="button"
+                  class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-accent"
+                  @click="openWishlistForm(item)"
+                >
+                  <Pencil class="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-red-500"
@@ -809,21 +1182,84 @@ async function handleTransfer(): Promise<void> {
           </ul>
         </div>
 
+        <!-- Assets Summary — sekarang bisa tambah / edit / hapus -->
         <div class="rounded-xl border border-border bg-surface p-4">
           <div class="mb-3 flex items-center justify-between">
             <h3 class="flex items-center gap-2 text-sm font-semibold text-ink">
               <Boxes class="h-4 w-4 text-accent" /> Assets Summary
             </h3>
-            <span class="text-xs text-ink-muted">Total: {{ formatCurrency(totalAssetValue) }}</span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-ink-muted">Total: {{ formatCurrency(totalAssetValue) }}</span>
+              <button
+                type="button"
+                class="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover"
+                @click="openAssetForm()"
+              >
+                <Plus class="h-3.5 w-3.5" /> Tambah
+              </button>
+            </div>
           </div>
-          <ul class="space-y-2">
+
+          <form
+            v-if="showAssetForm"
+            class="mb-3 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3"
+            @submit.prevent="saveAsset"
+          >
+            <input
+              v-model="newAssetName"
+              type="text"
+              placeholder="Nama aset (mis. Laptop)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:col-span-2"
+            />
+            <input
+              v-model.number="newAssetValue"
+              type="number"
+              min="0"
+              placeholder="Nilai (Rp)"
+              class="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            <div class="flex gap-2 sm:col-span-3">
+              <button
+                type="submit"
+                class="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              >
+                {{ editingAssetId ? 'Simpan Perubahan' : 'Tambah Aset' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-border px-4 py-2 text-sm text-ink-muted hover:border-accent"
+                @click="cancelAssetForm"
+              >
+                Batal
+              </button>
+            </div>
+          </form>
+
+          <div v-if="assets.length === 0" class="text-xs text-ink-muted">Belum ada aset tercatat.</div>
+          <ul v-else class="space-y-2">
             <li
               v-for="asset in assets"
               :key="asset.id"
-              class="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+              class="group flex items-center justify-between rounded-lg border border-border px-3 py-2"
             >
               <span class="text-sm text-ink">{{ asset.name }}</span>
-              <span v-if="asset.value" class="text-xs text-ink-muted">{{ formatCurrency(asset.value) }}</span>
+              <div class="flex items-center gap-2">
+                <span v-if="asset.value" class="text-xs text-ink-muted">{{ formatCurrency(asset.value) }}</span>
+                <button
+                  type="button"
+                  class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-accent"
+                  @click="openAssetForm(asset)"
+                >
+                  <Pencil class="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  class="text-ink-subtle opacity-0 transition-colors group-hover:opacity-100 hover:text-red-500"
+                  @click="removeAsset(asset.id)"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </button>
+              </div>
             </li>
           </ul>
         </div>
@@ -851,7 +1287,7 @@ async function handleTransfer(): Promise<void> {
             <div class="flex-1">
               <p class="text-sm text-ink">{{ transaction.category }}</p>
               <p class="text-xs text-ink-muted">
-                Cash · {{ dayjs(transaction.date).format('D MMM YYYY') }}
+                {{ accountLabel(transaction.accountId) }} · {{ dayjs(transaction.date).format('D MMM YYYY') }}
                 <span v-if="transaction.description"> · {{ transaction.description }}</span>
               </p>
             </div>

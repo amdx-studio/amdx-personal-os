@@ -60,10 +60,6 @@ import type {
 export const useFinanceStore = defineStore('finance', () => {
   const transactions = ref<Transaction[]>([])
 
-  // Nilai awal ini hanya placeholder aman-index sebelum data asli dari
-  // finance.json selesai dimuat (lihat FinanceView.vue yang mengakses
-  // accounts[0]..accounts[4] secara langsung). Akan langsung ditimpa
-  // oleh loadAccounts().
   const accounts = ref<Account[]>([
     { id: 'cash', label: 'Cash', iconKey: 'cash', amount: 850_000, createdAt: '' },
     { id: 'bank', label: 'Bank', iconKey: 'bank', amount: 4_200_000, createdAt: '' },
@@ -79,13 +75,10 @@ export const useFinanceStore = defineStore('finance', () => {
   const assets = ref<Asset[]>([])
   const isLoading = ref(false)
 
-  // Diurutkan dari yang terbaru
   const sortedTransactions = computed<Transaction[]>(() => {
     return [...transactions.value].sort((a, b) => b.date.localeCompare(a.date))
   })
 
-  // Semua nilai berikut derived data, dihitung ulang dari transactions,
-  // tidak disimpan terpisah di file JSON
   const totalIncome = computed<number>(() =>
     transactions.value
       .filter((transaction) => transaction.type === 'income')
@@ -100,7 +93,6 @@ export const useFinanceStore = defineStore('finance', () => {
 
   const balance = computed<number>(() => totalIncome.value - totalExpense.value)
 
-  // --- Transaksi bulan berjalan ---
   const currentMonthTransactions = computed<Transaction[]>(() => {
     const now = dayjs()
     return transactions.value.filter((t) => dayjs(t.date).isSame(now, 'month'))
@@ -122,7 +114,6 @@ export const useFinanceStore = defineStore('finance', () => {
     () => currentMonthIncome.value - currentMonthExpense.value,
   )
 
-  // --- Pengeluaran per kategori (bulan berjalan) ---
   interface CategoryBreakdown {
     category: string
     amount: number
@@ -151,7 +142,6 @@ export const useFinanceStore = defineStore('finance', () => {
     () => expenseByCategory.value[0] ?? null,
   )
 
-  // --- Tren 6 bulan terakhir ---
   interface MonthTrend {
     month: string
     label: string
@@ -181,7 +171,6 @@ export const useFinanceStore = defineStore('finance', () => {
     return months
   })
 
-  // --- Hari paling banyak belanja (bulan berjalan) ---
   const busiestSpendingDay = computed<string | null>(() => {
     const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
     const counter = new Array(7).fill(0)
@@ -200,12 +189,10 @@ export const useFinanceStore = defineStore('finance', () => {
     return counter[maxIndex] > 0 ? dayNames[maxIndex] : null
   })
 
-  // --- Total saldo dari seluruh akun ---
   const totalBalance = computed<number>(() =>
     accounts.value.reduce((sum, account) => sum + account.amount, 0),
   )
 
-  // --- Total nilai aset ---
   const totalAssetValue = computed<number>(() =>
     assets.value.reduce((sum, asset) => sum + (asset.value ?? 0), 0),
   )
@@ -218,9 +205,23 @@ export const useFinanceStore = defineStore('finance', () => {
     transactions.value = await fetchTransactions()
   }
 
+  /**
+   * Menambah transaksi baru DAN menyesuaikan saldo akun terkait:
+   * - income  -> saldo akun bertambah
+   * - expense -> saldo akun berkurang
+   * (accountId wajib dikirim dari form supaya saldo akun ikut akurat)
+   */
   async function createTransaction(input: CreateTransactionInput): Promise<void> {
     const newTransaction = await addTransaction(input)
     transactions.value = [...transactions.value, newTransaction]
+
+    if (input.accountId) {
+      const account = accounts.value.find((a) => a.id === input.accountId)
+      if (account) {
+        const delta = input.type === 'income' ? input.amount : -input.amount
+        await updateAccount(account.id, { amount: account.amount + delta })
+      }
+    }
   }
 
   async function updateTransaction(id: string, input: UpdateTransactionInput): Promise<void> {
@@ -230,9 +231,24 @@ export const useFinanceStore = defineStore('finance', () => {
     await editTransaction(id, input)
   }
 
+  /**
+   * Hapus transaksi DAN kembalikan efeknya ke saldo akun (mengurangi
+   * saldo untuk income yang dihapus, mengembalikan saldo untuk expense
+   * yang dihapus).
+   */
   async function deleteTransaction(id: string): Promise<void> {
+    const target = transactions.value.find((transaction) => transaction.id === id)
+
     transactions.value = transactions.value.filter((transaction) => transaction.id !== id)
     await removeTransaction(id)
+
+    if (target?.accountId) {
+      const account = accounts.value.find((a) => a.id === target.accountId)
+      if (account) {
+        const delta = target.type === 'income' ? -target.amount : target.amount
+        await updateAccount(account.id, { amount: account.amount + delta })
+      }
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -398,6 +414,29 @@ export const useFinanceStore = defineStore('finance', () => {
     }
   }
 
+  /**
+   * Mengosongkan SEMUA data finance: transaksi, budget, goal, tagihan,
+   * wishlist, dan aset dihapus; saldo tiap akun direset ke 0.
+   * Akun itu sendiri (Cash, Bank, dll) tidak dihapus supaya struktur
+   * dashboard tidak rusak.
+   */
+  async function resetFinanceData(): Promise<void> {
+    isLoading.value = true
+    try {
+      await Promise.all([
+        ...transactions.value.map((t) => removeTransaction(t.id)),
+        ...budgets.value.map((b) => deleteBudgetService(b.id)),
+        ...goals.value.map((g) => deleteGoalService(g.id)),
+        ...bills.value.map((b) => deleteBillService(b.id)),
+        ...wishlist.value.map((w) => deleteWishlistItemService(w.id)),
+        ...assets.value.map((a) => deleteAssetService(a.id)),
+        ...accounts.value.map((a) => updateAccountService(a.id, { amount: 0 })),
+      ])
+    } finally {
+      await loadFinanceData()
+    }
+  }
+
   return {
     transactions,
     accounts,
@@ -450,5 +489,6 @@ export const useFinanceStore = defineStore('finance', () => {
     updateAsset,
     deleteAsset,
     loadFinanceData,
+    resetFinanceData,
   }
 })

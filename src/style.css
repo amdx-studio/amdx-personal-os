@@ -1,21 +1,709 @@
+/* =========================================================================
+   AMDX PERSONAL OS — DESIGN SYSTEM
+   Dark, warm, premium. Inspired by Linear × Raycast × Notion × Arc × Obsidian.
+   Only tokens + primitives here. No layout/logic touched.
+   ========================================================================= */
+
+
+/* -------------------------------------------------------------------------
+   1. FONT IMPORT
+   ------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
+
+/* -------------------------------------------------------------------------
+   2. TAILWIND v4
+   ------------------------------------------------------------------------- */
 @import "tailwindcss";
 
+
+/* -------------------------------------------------------------------------
+   3. DESIGN TOKENS (CSS VARIABLES)
+   ------------------------------------------------------------------------- */
+:root {
+  /* ---- Colors: Surface ---- */
+  --color-background:      #141311;
+  --color-surface:          #1A1816;
+  --color-surface-hover:    #221F1B;
+  --color-surface-active:   #2A2621;
+  --color-surface-elevated: #1E1C19;
+
+  /* ---- Colors: Border ---- */
+  --color-border:        #2C2925;
+  --color-border-light:  #22201D;
+  --color-border-strong: #3A3631;
+
+  /* ---- Colors: Accent (Warm Violet) ---- */
+  --color-primary:         #A78BFA;
+  --color-primary-hover:   #B9A2FF;
+  --color-primary-active:  #8B6EF0;
+  --color-primary-soft:    rgba(167, 139, 250, 0.12);
+  --color-primary-border:  rgba(167, 139, 250, 0.35);
+
+  /* ---- Colors: Semantic ---- */
+  --color-success:      #4ADE80;
+  --color-success-soft: rgba(74, 222, 128, 0.12);
+  --color-warning:      #FBBF24;
+  --color-warning-soft: rgba(251, 191, 36, 0.12);
+  --color-danger:       #F87171;
+  --color-danger-hover: #FF8A8A;
+  --color-danger-soft:  rgba(248, 113, 113, 0.12);
+  --color-info:         #60A5FA;
+  --color-info-soft:    rgba(96, 165, 250, 0.12);
+
+  /* ---- Colors: Text ---- */
+  --color-text:           #EDEAE4;
+  --color-text-secondary: #B8B2A7;
+  --color-text-muted:     #7C766B;
+  --color-text-disabled:  #4D4842;
+  --color-text-on-primary: #17151F;
+
+  /* ---- Typography ---- */
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  --fs-xs:   11px;
+  --fs-sm:   12px;
+  --fs-base: 14px;
+  --fs-md:   16px;
+  --fs-lg:   20px;
+  --fs-xl:   24px;
+  --fs-2xl:  32px;
+
+  --lh-tight:   1.2;
+  --lh-snug:    1.35;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.65;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semi:    600;
+  --fw-bold:    700;
+
+  --tracking-tight:  -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.02em;
+
+  /* ---- Radius ---- */
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-pill: 999px;
+
+  /* ---- Spacing ---- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+
+  /* ---- Shadow (soft, low-opacity, warm) ---- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.32), 0 2px 4px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-ring-primary: 0 0 0 3px rgba(167, 139, 250, 0.22);
+  --shadow-ring-danger:  0 0 0 3px rgba(248, 113, 113, 0.22);
+
+  /* ---- Transition ---- */
+  --ease:     cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+
+  /* ---- Z-index scale ---- */
+  --z-dropdown: 1000;
+  --z-sticky:   1010;
+  --z-overlay:  1020;
+  --z-modal:    1030;
+  --z-popover:  1040;
+  --z-toast:    1050;
+
+  /* ---- Blur ---- */
+  --blur-glass: 16px;
+}
+
+
+/* -------------------------------------------------------------------------
+   4. TAILWIND v4 THEME BRIDGE (keep existing Tailwind classes working)
+   ------------------------------------------------------------------------- */
 @theme {
-  --color-surface: #ffffff;
-  --color-surface-muted: #f8f9fa;
-  --color-border: #e5e7eb;
+  --color-surface:       #1A1816;
+  --color-surface-muted: #221F1B;
+  --color-border:        #2C2925;
 
-  --color-ink: #18181b;
-  --color-ink-muted: #71717a;
-  --color-ink-subtle: #a1a1aa;
+  --color-ink:        #EDEAE4;
+  --color-ink-muted:  #B8B2A7;
+  --color-ink-subtle: #7C766B;
 
-  --color-accent: #aa3bff;
-  --color-accent-hover: #9333ea;
-  --color-accent-bg-soft: #f5ebff;
+  --color-accent:          #A78BFA;
+  --color-accent-hover:    #B9A2FF;
+  --color-accent-bg-soft:  #221E33;
 
-  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Geist', system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+
+/* -------------------------------------------------------------------------
+   5. BASE RESET & GLOBAL
+   ------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  @apply bg-surface text-ink antialiased;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  font-weight: var(--fw-regular);
+  color: var(--color-text);
+  background-color: var(--color-background);
+  letter-spacing: var(--tracking-normal);
+  overflow: hidden; /* Electron desktop: no body scroll */
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+
+/* -------------------------------------------------------------------------
+   6. TYPOGRAPHY
+   ------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  line-height: var(--lh-tight);
+}
+
+h1, .heading-xl {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.025em;
+}
+
+h2, .heading-l {
+  font-size: var(--fs-xl);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semi);
+}
+
+h3, .heading-m {
+  font-size: var(--fs-lg);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semi);
+}
+
+h4, .heading-s {
+  font-size: var(--fs-md);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-medium);
+}
+
+p,
+.body {
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.caption {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  color: var(--color-text-secondary);
+  letter-spacing: var(--tracking-wide);
+}
+
+.small {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-snug);
+  color: var(--color-text-muted);
+}
+
+.mono,
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "cv01";
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--dur-base) var(--ease);
+}
+a:hover { color: var(--color-primary-hover); }
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-4) 0;
+}
+
+
+/* -------------------------------------------------------------------------
+   7. SELECTION COLOR
+   ------------------------------------------------------------------------- */
+::selection {
+  background-color: rgba(167, 139, 250, 0.28);
+  color: var(--color-text);
+}
+
+
+/* -------------------------------------------------------------------------
+   8. FOCUS RING (keyboard accessibility)
+   ------------------------------------------------------------------------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+
+/* -------------------------------------------------------------------------
+   9. SCROLLBAR (thin, dark, modern)
+   ------------------------------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color var(--dur-base) var(--ease);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+
+/* -------------------------------------------------------------------------
+   10. BUTTONS
+   ------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: 36px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  letter-spacing: var(--tracking-normal);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-base) var(--ease),
+    border-color var(--dur-base) var(--ease),
+    color var(--dur-base) var(--ease),
+    box-shadow var(--dur-base) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---- Primary ---- */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:active:not(:disabled) {
+  background-color: var(--color-primary-active);
+  border-color: var(--color-primary-active);
+}
+
+/* ---- Secondary ---- */
+.btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:active:not(:disabled) {
+  background-color: var(--color-surface-active);
+}
+
+/* ---- Ghost ---- */
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+.btn-ghost:active:not(:disabled) {
+  background-color: var(--color-surface-active);
+}
+
+/* ---- Danger ---- */
+.btn-danger {
+  background-color: var(--color-danger);
+  color: #1A0A0A;
+  border-color: var(--color-danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- Sizes ---- */
+.btn-sm { height: 28px; padding: 0 var(--space-3); font-size: var(--fs-sm); border-radius: var(--radius-xs); }
+.btn-lg { height: 44px; padding: 0 var(--space-5); font-size: var(--fs-md); border-radius: var(--radius-md); }
+.btn-icon { width: 36px; padding: 0; }
+.btn-icon.btn-sm { width: 28px; }
+.btn-icon.btn-lg { width: 44px; }
+
+
+/* -------------------------------------------------------------------------
+   11. INPUTS, TEXTAREA, SELECT
+   ------------------------------------------------------------------------- */
+.input,
+.textarea,
+.select,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+textarea,
+select {
+  width: 100%;
+  padding: 0 var(--space-3);
+  height: 36px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--dur-base) var(--ease),
+    border-color var(--dur-base) var(--ease),
+    box-shadow var(--dur-base) var(--ease);
+  appearance: none;
+  outline: none;
+}
+
+textarea,
+.textarea {
+  min-height: 96px;
+  padding: var(--space-3);
+  line-height: var(--lh-relaxed);
+  resize: vertical;
+  height: auto;
+}
+
+select,
+.select {
+  padding-right: var(--space-8);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%237C766B' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  cursor: pointer;
+}
+
+.input:hover,
+.textarea:hover,
+.select:hover,
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: var(--color-border-strong);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-ring-primary);
+  background-color: var(--color-surface-elevated);
+}
+
+.input:disabled,
+.textarea:disabled,
+.select:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: var(--color-surface);
+}
+
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Autofill dark-safe (WebKit) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  caret-color: var(--color-text);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Input error state (optional utility) */
+.input-error,
+.textarea-error,
+.select-error {
+  border-color: var(--color-danger);
+}
+.input-error:focus,
+.textarea-error:focus,
+.select-error:focus {
+  border-color: var(--color-danger);
+  box-shadow: var(--shadow-ring-danger);
+}
+
+.label {
+  display: inline-block;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+  letter-spacing: var(--tracking-wide);
+}
+
+
+/* -------------------------------------------------------------------------
+   12. CARD
+   ------------------------------------------------------------------------- */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color var(--dur-base) var(--ease),
+    border-color var(--dur-base) var(--ease),
+    box-shadow var(--dur-base) var(--ease),
+    transform var(--dur-base) var(--ease);
+}
+
+.card-hover:hover {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.card-elevated {
+  background-color: var(--color-surface-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.card-flat {
+  box-shadow: none;
+}
+
+
+/* -------------------------------------------------------------------------
+   13. GLASS EFFECT (subtle — use sparingly)
+   ------------------------------------------------------------------------- */
+.glass {
+  background-color: rgba(26, 24, 22, 0.72);
+  backdrop-filter: blur(var(--blur-glass)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-strong {
+  background-color: rgba(20, 19, 17, 0.85);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+/* -------------------------------------------------------------------------
+   14. UTILITY: DIVIDER, BADGE, KBD, TOOLTIP-LIKE
+   ------------------------------------------------------------------------- */
+.divider {
+  height: 1px;
+  background-color: var(--color-border);
+  border: 0;
+}
+.divider-vertical {
+  width: 1px;
+  height: 100%;
+  background-color: var(--color-border);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  letter-spacing: var(--tracking-wide);
+}
+.badge-primary { color: var(--color-primary); background-color: var(--color-primary-soft); border-color: var(--color-primary-border); }
+.badge-success { color: var(--color-success); background-color: var(--color-success-soft); border-color: transparent; }
+.badge-warning { color: var(--color-warning); background-color: var(--color-warning-soft); border-color: transparent; }
+.badge-danger  { color: var(--color-danger);  background-color: var(--color-danger-soft);  border-color: transparent; }
+
+kbd,
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+}
+
+
+/* -------------------------------------------------------------------------
+   15. TEXT COLOR HELPERS
+   ------------------------------------------------------------------------- */
+.text-primary   { color: var(--color-text); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted     { color: var(--color-text-muted); }
+.text-accent    { color: var(--color-primary); }
+.text-success   { color: var(--color-success); }
+.text-warning   { color: var(--color-warning); }
+.text-danger    { color: var(--color-danger); }
+
+
+/* -------------------------------------------------------------------------
+   16. MOTION: DEFAULT INTERACTIVE TRANSITIONS
+   ------------------------------------------------------------------------- */
+button,
+[role="button"],
+a,
+summary {
+  transition:
+    background-color var(--dur-base) var(--ease),
+    color var(--dur-base) var(--ease),
+    border-color var(--dur-base) var(--ease),
+    opacity var(--dur-base) var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* -------------------------------------------------------------------------
+   17. APP SHELL (electron: prevent overscroll, native feel)
+   ------------------------------------------------------------------------- */
+#app {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+/* Draggable region utility (for custom titlebars — optional, opt-in via class) */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
 }

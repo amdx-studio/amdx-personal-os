@@ -19,6 +19,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Tasks', subtitle: 'Kelola daftar tugas kamu' },
   },
   {
+    path: '/routine',
+    name: 'routine',
+    component: () => import('../pages/RoutinePage.vue'),
+    meta: { title: 'Routine', subtitle: 'Atur aktivitas harian kamu' },
+  },
+  {
     path: '/notes',
     name: 'notes',
     component: () => import('../pages/NotesPage.vue'),

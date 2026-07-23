@@ -80,6 +80,58 @@ export const useRoutineStore = defineStore('routine', () => {
     await removeRoutineActivity(id)
   }
 
+  async function duplicateRoutineActivity(id: string): Promise<void> {
+    const target = activities.value.find((activity) => activity.id === id)
+    if (!target) return
+
+    await createRoutineActivity({
+      title: `${target.title} (Copy)`,
+      description: target.description,
+      category: target.category,
+      day: target.day,
+      startTime: target.startTime,
+      endTime: target.endTime,
+      priority: target.priority,
+      notes: target.notes,
+    })
+  }
+
+  async function duplicateDay(day: RoutineDay): Promise<void> {
+    const dayActivities = getActivitiesByDay(day)
+
+    for (const activity of dayActivities) {
+      await createRoutineActivity({
+        title: activity.title,
+        description: activity.description,
+        category: activity.category,
+        day: activity.day,
+        startTime: activity.startTime,
+        endTime: activity.endTime,
+        priority: activity.priority,
+        notes: activity.notes,
+      })
+    }
+  }
+
+  async function copyDayToDays(fromDay: RoutineDay, toDays: RoutineDay[]): Promise<void> {
+    const sourceActivities = getActivitiesByDay(fromDay)
+
+    for (const targetDay of toDays) {
+      for (const activity of sourceActivities) {
+        await createRoutineActivity({
+          title: activity.title,
+          description: activity.description,
+          category: activity.category,
+          day: targetDay,
+          startTime: activity.startTime,
+          endTime: activity.endTime,
+          priority: activity.priority,
+          notes: activity.notes,
+        })
+      }
+    }
+  }
+
   return {
     activities,
     isLoading,
@@ -93,5 +145,8 @@ export const useRoutineStore = defineStore('routine', () => {
     updateRoutineActivity,
     toggleRoutineActivity,
     deleteRoutineActivity,
+    duplicateRoutineActivity,
+    duplicateDay,
+    copyDayToDays,
   }
 })

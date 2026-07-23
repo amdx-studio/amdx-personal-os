@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import {
   LayoutDashboard,
   CheckSquare,
+  CalendarClock,
   StickyNote,
   Wallet,
   Target,
@@ -19,6 +20,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { routeName: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { routeName: 'tasks', label: 'Tasks', icon: CheckSquare },
+  { routeName: 'routine', label: 'Routine', icon: CalendarClock },
   { routeName: 'notes', label: 'Notes', icon: StickyNote },
   { routeName: 'finance', label: 'Finance', icon: Wallet },
   { routeName: 'goals', label: 'Goals', icon: Target },
